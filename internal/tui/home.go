@@ -73,6 +73,7 @@ type itemKind int
 const (
 	itemAll itemKind = iota
 	itemProject
+	itemGitHub
 	itemAddCwd
 	itemAddPath
 )
@@ -83,7 +84,9 @@ type homeItem struct {
 }
 
 // openable items lead to a dashboard; the rest are actions.
-func (it homeItem) openable() bool { return it.kind == itemAll || it.kind == itemProject }
+func (it homeItem) openable() bool {
+	return it.kind == itemAll || it.kind == itemProject || it.kind == itemGitHub
+}
 
 // homeItems is the launcher menu. Future sections (GitHub, costs, ...) become
 // new itemKinds here.
@@ -94,6 +97,9 @@ func (m *Model) homeItems() []homeItem {
 	}
 	for _, p := range m.cfg.Projects {
 		items = append(items, homeItem{kind: itemProject, path: p})
+	}
+	if m.cfg.GitHubEnabled() {
+		items = append(items, homeItem{kind: itemGitHub})
 	}
 	if home, _ := os.UserHomeDir(); m.cwd != "" && m.cwd != home && m.watchedRoot(m.cwd) == "" {
 		items = append(items, homeItem{kind: itemAddCwd, path: m.cwd})
@@ -208,6 +214,10 @@ func (m Model) activate(it homeItem) (tea.Model, tea.Cmd) {
 		m.openScope("")
 	case itemProject:
 		m.openScope(it.path)
+	case itemGitHub:
+		m.screen = screenGitHub
+		m.ghCursor, m.ghOffset = 0, 0
+		m.ghClamp()
 	case itemAddCwd:
 		return m.addProject(it.path)
 	case itemAddPath:
@@ -297,7 +307,7 @@ func (m Model) homeLines() []string {
 		lines = append(lines, sDim.Render("      "+pad("PROJECT", nameW)+pad("PATH", pathW)+pad("DEPS", depsW)+pad("VULNS", vulnW)+"OUTDATED"))
 	}
 
-	addGap := true
+	addGap, sawIntegrations := true, false
 	for i, it := range items {
 		marker, num := "  ", "    "
 		if i == m.homeCursor {
@@ -305,6 +315,19 @@ func (m Model) homeLines() []string {
 		}
 		if it.openable() && i < 9 {
 			num = sDim.Render(fmt.Sprintf("%d   ", i+1))
+		}
+
+		if it.kind == itemGitHub {
+			if !sawIntegrations {
+				sawIntegrations = true
+				lines = append(lines, "", sTitle.Render("INTEGRATIONS"), "")
+			}
+			name := "GitHub"
+			if i == m.homeCursor {
+				name = sBold.Render(name)
+			}
+			lines = append(lines, marker+num+pad(name, nameW)+m.ghHomeSummary())
+			continue
 		}
 
 		if !it.openable() {

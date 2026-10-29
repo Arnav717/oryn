@@ -47,6 +47,9 @@ func (m Model) View() string {
 		body = m.fullBox(helpLines())
 	case m.screen == screenHome:
 		body = m.fullBox(m.homeLines())
+	case m.screen == screenGitHub:
+		lines, _, _ := m.ghLines()
+		body = m.fullBox(lines[min(m.ghOffset, len(lines)):])
 	case m.detail != "":
 		body = m.fullBox(m.detailLines())
 	default:
@@ -59,7 +62,16 @@ func (m Model) View() string {
 
 func (m Model) header() string {
 	left := sLogo.Render("ORYN")
-	if m.screen == screenHome {
+	if m.screen == screenGitHub {
+		left += " " + sDim.Render("›") + " " + sBold.Render("github")
+		if review, mine, failing := m.ghSummary(); m.snap != nil && m.snap.GitHub != nil {
+			parts := []string{fmt.Sprintf("%d to review", review), fmt.Sprintf("%d open", mine)}
+			if failing > 0 {
+				parts = append(parts, sBad.Render(fmt.Sprintf("%d failing CI", failing)))
+			}
+			left += "  " + strings.Join(parts, sDim.Render(" · "))
+		}
+	} else if m.screen == screenHome {
 		left += " " + sDim.Render("home")
 		if m.snap != nil {
 			left += "  " + strings.Join([]string{
@@ -127,6 +139,13 @@ func vulnSummary(total, crit, high int) string {
 func (m Model) footer() string {
 	if m.cmdMode {
 		return clip(m.input.View()+m.suggestions(), m.w)
+	}
+	if m.screen == screenGitHub {
+		hints := sDim.Render("j/k move · enter open in browser · esc home · r refresh · ? help · q quit")
+		if m.flash == "" {
+			return clip(hints, m.w)
+		}
+		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
 	}
 	if m.screen == screenHome {
 		switch items := m.homeItems(); {
@@ -413,6 +432,10 @@ func helpLines() []string {
 		row("j/k, enter", "pick a project (1-9 jumps straight in)"),
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
+		"",
+		sBold.Render("GitHub") + sDim.Render("  (open it from home)"),
+		row("j/k, enter", "move · open the PR in your browser"),
+		row("esc", "back to home"),
 		"",
 		sBold.Render("Search") + sDim.Render("  (press / or :, inside a project)"),
 		row("any letters", "fuzzy-find a package, e.g. `lod`, `chi`"),

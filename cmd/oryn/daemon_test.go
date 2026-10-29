@@ -14,9 +14,11 @@ func TestAlertWorthy(t *testing.T) {
 		{Kind: "vuln", Severity: 2, Title: "medium"},
 		{Kind: "release", Title: "new release"},
 		{Kind: "status", Severity: 0, Title: "recovered"},
+		{Kind: "review", Severity: 2, Title: "review me"},
+		{Kind: "ci", Severity: 3, Title: "ci red"},
 	}
 	got := alertWorthy(in)
-	if len(got) != 3 || got[0].Title != "crit" || got[1].Title != "high" || got[2].Title != "recovered" {
+	if len(got) != 5 || got[0].Title != "crit" || got[1].Title != "high" || got[2].Title != "recovered" || got[3].Title != "review me" || got[4].Title != "ci red" {
 		t.Fatalf("got %+v", got)
 	}
 }

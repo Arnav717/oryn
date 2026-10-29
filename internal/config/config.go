@@ -21,6 +21,7 @@ type Config struct {
 	Projects []string  `toml:"projects"`
 	Services []Service `toml:"service"`
 	Refresh  string    `toml:"refresh"`
+	GitHub   *bool     `toml:"github"` // nil = on whenever a token is available
 
 	RefreshEvery   time.Duration `toml:"-"`
 	Path           string        `toml:"-"`
@@ -78,13 +79,17 @@ func Load(path string) (*Config, error) {
 	return c, nil
 }
 
+// GitHubEnabled reports whether the GitHub integration is switched on.
+func (c *Config) GitHubEnabled() bool { return c.GitHub == nil || *c.GitHub }
+
 // Save writes the config back to Path. Built-in services are not persisted.
 func (c *Config) Save() error {
 	out := struct {
 		Projects []string  `toml:"projects"`
 		Refresh  string    `toml:"refresh,omitempty"`
+		GitHub   *bool     `toml:"github,omitempty"`
 		Services []Service `toml:"service,omitempty"`
-	}{Refresh: c.Refresh}
+	}{Refresh: c.Refresh, GitHub: c.GitHub}
 	for _, p := range c.Projects {
 		out.Projects = append(out.Projects, ShortHome(p))
 	}

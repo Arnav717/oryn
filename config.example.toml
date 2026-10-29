@@ -7,6 +7,10 @@ projects = [
   "~/code/api",
 ]
 
+# GitHub integration (PR review queue, CI). On by default when a token is
+# available via `gh auth login` or GH_TOKEN; set to false to disable.
+# github = true
+
 # Auto-refresh interval.
 refresh = "10m"
 

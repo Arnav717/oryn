@@ -65,6 +65,7 @@ type screen int
 const (
 	screenHome screen = iota
 	screenProject
+	screenGitHub
 )
 
 type snapMsg struct{ snap *app.Snapshot }
@@ -86,6 +87,9 @@ type Model struct {
 
 	stats map[string]projStat // by project path
 	total projStat
+
+	ghCursor int
+	ghOffset int
 
 	cwd         string
 	homeCursor  int
@@ -184,6 +188,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.snap = msg.snap
 		m.index()
 		m.clampAll()
+		m.ghClamp()
 		m.flash = "updated " + m.snap.At.Format("15:04:05")
 		if n := len(m.snap.Warnings); n > 0 {
 			m.flash += fmt.Sprintf(" · %d warning(s): %s", n, m.snap.Warnings[0])
@@ -243,8 +248,11 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.screen == screenHome {
+	switch m.screen {
+	case screenHome:
 		return m.handleHomeKey(k)
+	case screenGitHub:
+		return m.handleGHKey(k)
 	}
 
 	if m.detail != "" {

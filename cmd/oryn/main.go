@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -21,7 +22,7 @@ import (
 )
 
 // version is overridden at release time with -ldflags "-X main.version=...".
-var version = "0.2.0"
+var version = "0.3.0"
 
 type multiFlag []string
 
@@ -163,9 +164,33 @@ func scan(cfg *config.Config, st *store.Store) {
 		}
 		fmt.Printf("  %-14s %s\n", s.Service, desc)
 	}
+	fmt.Println("\nGITHUB")
+	switch gh := snap.GitHub; {
+	case errors.Is(snap.GitHubErr, source.ErrNoToken):
+		fmt.Println("  not connected (run `gh auth login`)")
+	case snap.GitHubErr != nil:
+		fmt.Println("  error:", snap.GitHubErr)
+	case gh == nil:
+		fmt.Println("  disabled in config")
+	default:
+		fmt.Printf("  %s: %d awaiting your review, %d open PRs of yours\n", gh.Login, len(gh.Review), len(gh.Mine))
+		for _, pr := range gh.Review {
+			fmt.Printf("  review  %-34s %s\n", pr.Ref(), pr.Title)
+		}
+		for _, pr := range gh.Mine {
+			fmt.Printf("  mine    %-34s ci=%-8s %s\n", pr.Ref(), orDash(pr.CI), pr.Title)
+		}
+	}
 	for _, w := range snap.Warnings {
 		fmt.Fprintln(os.Stderr, "warning:", w)
 	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
 }
 
 // editProjects adds or removes dirs (default: current dir) and saves the config.

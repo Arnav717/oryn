@@ -21,12 +21,12 @@ import (
 const maxIndividual = 3
 
 // alertWorthy picks the events that deserve a desktop notification: high or
-// critical vulnerabilities and any upstream status change. New releases are
-// too frequent to interrupt anyone.
+// critical vulnerabilities, upstream status changes, new review requests and
+// failing CI on your PRs. New releases are too frequent to interrupt anyone.
 func alertWorthy(events []store.Event) []store.Event {
 	var out []store.Event
 	for _, e := range events {
-		if (e.Kind == "vuln" && e.Severity >= 3) || e.Kind == "status" {
+		if (e.Kind == "vuln" && e.Severity >= 3) || e.Kind == "status" || e.Kind == "review" || e.Kind == "ci" {
 			out = append(out, e)
 		}
 	}

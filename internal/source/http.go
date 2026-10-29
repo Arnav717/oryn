@@ -20,6 +20,12 @@ func getJSON(ctx context.Context, url string, out any) error {
 }
 
 func doJSON(ctx context.Context, method, url string, body, out any) error {
+	return doJSONH(ctx, method, url, nil, body, out)
+}
+
+// doJSONH is doJSON with extra request headers (e.g. Authorization). Headers
+// are never included in returned errors.
+func doJSONH(ctx context.Context, method, url string, headers map[string]string, body, out any) error {
 	var r io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -34,6 +40,9 @@ func doJSON(ctx context.Context, method, url string, body, out any) error {
 	}
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

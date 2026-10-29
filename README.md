@@ -49,11 +49,22 @@ Search: press `/`, type a few letters (`lod`, `chi`). Matches appear live;
 `tab` completes, `enter` opens. Single letters jump: `h` home, `p` portfolio,
 `v` vulns, `s` status, `t` tape.
 
+### GitHub
+
+The home screen has a **GitHub** row under *Integrations*. Open it to see PRs
+waiting on your review and your own open PRs, with CI state, review state and
+age. Your own PRs are sorted so failing CI and requested changes come first.
+`enter` opens the PR in your browser.
+
+oryn reads your login from the GitHub CLI (`gh auth login`) or `GH_TOKEN` /
+`GITHUB_TOKEN`. It stores nothing, and the token is only sent to
+`api.github.com`. Set `github = false` in the config to turn it off.
+
 ### Background alerts
 
 `oryn daemon` re-scans on the refresh interval and sends a desktop
-notification for new high/critical vulnerabilities and upstream status
-changes (`notify-send` on Linux, `osascript` on macOS). The first run records
+notification for new high/critical vulnerabilities, upstream status changes,
+new review requests and failing CI on your PRs (`notify-send` on Linux, `osascript` on macOS). The first run records
 a silent baseline so you aren't flooded with everything that already exists.
 Run it at login with the systemd unit in `contrib/oryn.service`.
 
@@ -65,6 +76,7 @@ Run it at login with the systemd unit in `contrib/oryn.service`.
 | Vulns     | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI, RustSec advisories) |
 | Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
 | Upstream  | statuspage `/api/v2/status.json` endpoints         |
+| GitHub    | GraphQL API: review requests, your PRs, CI status |
 | Tape      | every new vuln, release and status change, stored in SQLite |
 
 Direct vs. transitive comes from the lockfile where it records it (npm, pnpm,
@@ -78,6 +90,7 @@ Data: `~/.local/share/oryn/oryn.db`.
 
 ```
 cmd/oryn/          entrypoint: tui, scan, daemon
+internal/browser/  open URLs
 internal/notify/   desktop notifications
 internal/config/   config loading
 internal/detect/   lockfile parsers
@@ -89,7 +102,6 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- v0.3: GitHub PR/CI queue, LLM + cloud cost desk, upgrade desk, more home
-  sections (the home menu is built to take new entries)
-- v0.4: AI changelog impact analysis, daily brief
+- v0.4: LLM + cloud cost desk, upgrade desk (outdated deps ranked by risk)
+- v0.5: AI changelog impact analysis, daily brief
 - later: custom layouts, exec-based custom sources/panes, team sync

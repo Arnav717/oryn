@@ -18,7 +18,7 @@ func testModel(cwd string, projects ...string) Model {
 
 func TestHomeItems(t *testing.T) {
 	m := testModel("/code/other", "/code/a", "/code/b")
-	kinds := []itemKind{itemAll, itemProject, itemProject, itemAddCwd, itemAddPath}
+	kinds := []itemKind{itemAll, itemProject, itemProject, itemGitHub, itemAddCwd, itemAddPath}
 	items := m.homeItems()
 	if len(items) != len(kinds) {
 		t.Fatalf("got %d items: %+v", len(items), items)
@@ -32,15 +32,24 @@ func TestHomeItems(t *testing.T) {
 	// One project: no "All projects" row. Inside a watched project: no add-cwd row.
 	m = testModel("/code/a/sub", "/code/a")
 	items = m.homeItems()
-	if len(items) != 2 || items[0].kind != itemProject || items[1].kind != itemAddPath {
+	if len(items) != 3 || items[0].kind != itemProject || items[1].kind != itemGitHub || items[2].kind != itemAddPath {
 		t.Errorf("single project inside cwd: %+v", items)
 	}
 
 	// Nothing watched: offer cwd first.
 	m = testModel("/code/new")
 	items = m.homeItems()
-	if len(items) != 2 || items[0].kind != itemAddCwd || m.homeCursor != 0 {
+	if len(items) != 3 || items[0].kind != itemGitHub || items[1].kind != itemAddCwd || m.homeCursor != 0 {
 		t.Errorf("empty: %+v cursor=%d", items, m.homeCursor)
+	}
+
+	off := false
+	m = testModel("/code/new", "/code/a")
+	m.cfg.GitHub = &off
+	for _, it := range m.homeItems() {
+		if it.kind == itemGitHub {
+			t.Error("github row shown although github = false")
+		}
 	}
 }
 

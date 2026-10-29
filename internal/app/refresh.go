@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -15,14 +16,16 @@ import (
 )
 
 type Snapshot struct {
-	Deps     []detect.Dep
-	Vulns    map[string][]source.Vuln // by source.DepKey
-	Latest   map[string]string        // by source.PkgKey
-	Status   []source.Status
-	Events   []store.Event // newest first, from the store
-	New      []store.Event // events first recorded by this refresh
-	Warnings []string
-	At       time.Time
+	Deps      []detect.Dep
+	Vulns     map[string][]source.Vuln // by source.DepKey
+	Latest    map[string]string        // by source.PkgKey
+	Status    []source.Status
+	GitHub    *source.GitHubData
+	GitHubErr error         // source.ErrNoToken when not connected
+	Events    []store.Event // newest first, from the store
+	New       []store.Event // events first recorded by this refresh
+	Warnings  []string
+	At        time.Time
 }
 
 // VulnList flattens vulns across all projects, most severe first.
@@ -69,13 +72,22 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 
 	var wg sync.WaitGroup
 	var vulnErr error
-	wg.Add(3)
+	wg.Add(4)
+	go func() {
+		defer wg.Done()
+		if cfg.GitHubEnabled() {
+			snap.GitHub, snap.GitHubErr = source.FetchGitHub(ctx)
+		}
+	}()
 	go func() { defer wg.Done(); snap.Vulns, vulnErr = source.QueryOSV(ctx, snap.Deps) }()
 	go func() { defer wg.Done(); snap.Latest = source.LatestAll(ctx, snap.Deps) }()
 	go func() { defer wg.Done(); snap.Status = source.CheckStatus(ctx, cfg.Services) }()
 	wg.Wait()
 	if vulnErr != nil {
 		snap.Warnings = append(snap.Warnings, "osv: "+vulnErr.Error())
+	}
+	if err := snap.GitHubErr; err != nil && !errors.Is(err, source.ErrNoToken) {
+		snap.Warnings = append(snap.Warnings, err.Error())
 	}
 
 	if st != nil {
@@ -115,6 +127,42 @@ func recordEvents(st *store.Store, snap *Snapshot) error {
 		})
 		if err != nil {
 			return err
+		}
+	}
+
+	if gh := snap.GitHub; gh != nil {
+		for _, pr := range gh.Review {
+			err := record(store.Event{
+				Key:      "review:" + pr.Ref(),
+				Kind:     "review",
+				Severity: 2,
+				Entity:   pr.Repo,
+				Title:    fmt.Sprintf("review requested: %s %s (%s)", pr.Ref(), pr.Title, pr.Author),
+				URL:      pr.URL,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		for _, pr := range gh.Mine {
+			if !pr.Failing() {
+				continue
+			}
+			oid := pr.CommitOID
+			if len(oid) > 7 {
+				oid = oid[:7]
+			}
+			err := record(store.Event{
+				Key:      fmt.Sprintf("ci:%s:%s", pr.Ref(), oid),
+				Kind:     "ci",
+				Severity: 3,
+				Entity:   pr.Repo,
+				Title:    fmt.Sprintf("CI failing on your PR %s %s", pr.Ref(), pr.Title),
+				URL:      pr.URL,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
