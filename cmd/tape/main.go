@@ -1,0 +1,204 @@
+// Command tape is a terminal for everything that affects your code.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/vontrix/tape/internal/app"
+	"github.com/vontrix/tape/internal/config"
+	"github.com/vontrix/tape/internal/source"
+	"github.com/vontrix/tape/internal/store"
+	"github.com/vontrix/tape/internal/tui"
+)
+
+type multiFlag []string
+
+func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
+func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
+
+const usage = `tape - a terminal for everything that affects your code
+
+Usage:
+  tape              open the terminal
+  tape add [dir]    watch a project (default: current dir)
+  tape rm [dir]     stop watching a project
+  tape ls           list watched projects
+  tape scan         print a report and exit
+
+With no watched projects, tape uses the current directory.
+
+Flags:
+`
+
+func main() {
+	args := os.Args[1:]
+	cmd := "tui"
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		cmd, args = args[0], args[1:]
+	}
+
+	fs := flag.NewFlagSet("tape", flag.ExitOnError)
+	var projects multiFlag
+	fs.Var(&projects, "p", "project directory to watch (repeatable; default: config or current dir)")
+	cfgPath := fs.String("config", config.DefaultPath(), "config file")
+	dbPath := fs.String("db", store.DefaultPath(), "event database")
+	fs.Usage = func() { fmt.Fprint(os.Stderr, usage); fs.PrintDefaults() }
+	fs.Parse(args)
+
+	cfg, err := config.Load(*cfgPath)
+	if err != nil {
+		fatal(err)
+	}
+
+	switch cmd {
+	case "add", "a":
+		editProjects(cfg, fs.Args(), true)
+		return
+	case "rm", "remove":
+		editProjects(cfg, fs.Args(), false)
+		return
+	case "ls", "list":
+		listProjects(cfg)
+		return
+	}
+
+	if len(projects) > 0 {
+		cfg.Projects = nil
+		for _, p := range projects {
+			cfg.Projects = append(cfg.Projects, config.ExpandHome(p))
+		}
+	}
+	if len(cfg.Projects) == 0 {
+		wd, err := os.Getwd()
+		if err != nil {
+			fatal(err)
+		}
+		cfg.Projects = []string{wd}
+	}
+	for i, p := range cfg.Projects {
+		if abs, err := filepath.Abs(p); err == nil {
+			cfg.Projects[i] = abs
+		}
+	}
+
+	st, err := store.Open(*dbPath)
+	if err != nil {
+		fatal(err)
+	}
+	defer st.Close()
+
+	switch cmd {
+	case "tui":
+		p := tea.NewProgram(tui.New(cfg, st), tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			fatal(err)
+		}
+	case "scan", "s":
+		scan(cfg, st)
+	default:
+		fs.Usage()
+		os.Exit(2)
+	}
+}
+
+func scan(cfg *config.Config, st *store.Store) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	snap := app.Refresh(ctx, cfg, st)
+
+	direct := 0
+	for _, d := range snap.Deps {
+		if d.Direct {
+			direct++
+		}
+	}
+	fmt.Printf("%d deps (%d direct) across %d project(s)\n\n", len(snap.Deps), direct, len(cfg.Projects))
+
+	vulns := snap.VulnList()
+	fmt.Printf("VULNERABILITIES (%d)\n", len(vulns))
+	for _, v := range vulns {
+		fix := ""
+		if v.Fixed != "" {
+			fix = " -> " + v.Fixed
+		}
+		fmt.Printf("  %-8s %-20s %s@%s%s  %s\n", v.Severity, v.CVE(), v.Package, v.Version, fix, v.Summary)
+	}
+
+	fmt.Println("\nOUTDATED (direct)")
+	seen := map[string]bool{}
+	for _, d := range snap.Deps {
+		k := source.PkgKey(d.Ecosystem, d.Name)
+		if d.Direct && !seen[k] && source.Outdated(d.Version, snap.Latest[k]) {
+			seen[k] = true
+			fmt.Printf("  %-40s %s -> %s\n", d.Name, d.Version, snap.Latest[k])
+		}
+	}
+
+	fmt.Println("\nUPSTREAM")
+	for _, s := range snap.Status {
+		desc := s.Description
+		if s.Err != nil {
+			desc = "error: " + s.Err.Error()
+		}
+		fmt.Printf("  %-14s %s\n", s.Service, desc)
+	}
+	for _, w := range snap.Warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w)
+	}
+}
+
+// editProjects adds or removes dirs (default: current dir) and saves the config.
+func editProjects(cfg *config.Config, dirs []string, add bool) {
+	if len(dirs) == 0 {
+		dirs = []string{"."}
+	}
+	for _, d := range dirs {
+		abs, err := filepath.Abs(config.ExpandHome(d))
+		if err != nil {
+			fatal(err)
+		}
+		i := slices.Index(cfg.Projects, abs)
+		switch {
+		case add && i >= 0:
+			fmt.Println("already watching", config.ShortHome(abs))
+		case add:
+			if st, err := os.Stat(abs); err != nil || !st.IsDir() {
+				fatal(fmt.Errorf("%s is not a directory", d))
+			}
+			cfg.Projects = append(cfg.Projects, abs)
+			fmt.Println("watching", config.ShortHome(abs))
+		case i >= 0:
+			cfg.Projects = slices.Delete(cfg.Projects, i, i+1)
+			fmt.Println("stopped watching", config.ShortHome(abs))
+		default:
+			fmt.Println("not watching", config.ShortHome(abs))
+		}
+	}
+	if err := cfg.Save(); err != nil {
+		fatal(err)
+	}
+}
+
+func listProjects(cfg *config.Config) {
+	if len(cfg.Projects) == 0 {
+		fmt.Println("no watched projects; `tape add` in a project dir to start")
+		return
+	}
+	for _, p := range cfg.Projects {
+		fmt.Println(config.ShortHome(p))
+	}
+}
+
+func fatal(err error) {
+	fmt.Fprintln(os.Stderr, "tape:", err)
+	os.Exit(1)
+}

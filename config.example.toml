@@ -1,0 +1,22 @@
+# Copy to ~/.config/tape/config.toml
+
+# Project roots to watch. Each is scanned (4 levels deep) for
+# package-lock.json, go.mod and requirements*.txt.
+# Default when empty: the current directory. `-p dir` overrides.
+projects = [
+  "~/code/myapp",
+  "~/code/api",
+]
+
+# Auto-refresh interval.
+refresh = "10m"
+
+# Upstream services (any statuspage-compatible /api/v2/status.json).
+# Setting any [[service]] replaces the built-in list.
+# [[service]]
+# name = "GitHub"
+# url  = "https://www.githubstatus.com"
+#
+# [[service]]
+# name = "Stripe"
+# url  = "https://www.stripestatus.com"
