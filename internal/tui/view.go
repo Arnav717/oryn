@@ -2,11 +2,13 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Arnav717/oryn/internal/detect"
+	"github.com/Arnav717/oryn/internal/store"
 )
 
 type size struct{ w, h int }
@@ -43,6 +45,8 @@ func (m Model) View() string {
 	switch {
 	case m.showHelp:
 		body = m.fullBox(helpLines())
+	case m.screen == screenHome:
+		body = m.fullBox(m.homeLines())
 	case m.detail != "":
 		body = m.fullBox(m.detailLines())
 	default:
@@ -55,37 +59,44 @@ func (m Model) View() string {
 
 func (m Model) header() string {
 	left := sLogo.Render("ORYN")
-	if m.snap != nil {
-		var crit, high, outdated, down int
-		for _, v := range m.vulns {
-			switch v.Severity {
-			case "CRITICAL":
-				crit++
-			case "HIGH":
-				high++
+	if m.screen == screenHome {
+		left += " " + sDim.Render("home")
+		if m.snap != nil {
+			left += "  " + strings.Join([]string{
+				fmt.Sprintf("%d project(s)", len(m.cfg.Projects)),
+				vulnSummary(m.total.Vulns, m.total.Crit, m.total.High),
+				sWarn.Render(fmt.Sprintf("%d outdated", m.total.Outdated)),
+				m.upstreamPart(),
+			}, sDim.Render(" · "))
+		}
+	} else {
+		name := "all projects"
+		if m.scope != "" {
+			name = filepath.Base(m.scope)
+		}
+		left += " " + sDim.Render("›") + " " + sBold.Render(name)
+		if m.snap != nil {
+			var crit, high, outdated int
+			for _, v := range m.vulns {
+				switch v.Severity {
+				case "CRITICAL":
+					crit++
+				case "HIGH":
+					high++
+				}
 			}
-		}
-		for _, p := range m.pkgs {
-			if p.Direct && p.outdated() {
-				outdated++
+			for _, p := range m.pkgs {
+				if p.Direct && p.outdated() {
+					outdated++
+				}
 			}
+			left += "  " + strings.Join([]string{
+				fmt.Sprintf("%d pkgs", len(m.pkgs)),
+				vulnSummary(len(m.vulns), crit, high),
+				sWarn.Render(fmt.Sprintf("%d outdated", outdated)),
+				m.upstreamPart(),
+			}, sDim.Render(" · "))
 		}
-		for _, s := range m.snap.Status {
-			if !s.OK() {
-				down++
-			}
-		}
-		parts := []string{
-			fmt.Sprintf("%d pkgs", len(m.pkgs)),
-			vulnSummary(len(m.vulns), crit, high),
-			sWarn.Render(fmt.Sprintf("%d outdated", outdated)),
-		}
-		if down > 0 {
-			parts = append(parts, sBad.Render(fmt.Sprintf("%d upstream issue(s)", down)))
-		} else {
-			parts = append(parts, sOK.Render("upstream ok"))
-		}
-		left += " " + strings.Join(parts, sDim.Render(" · "))
 	}
 	right := m.now.Format("Mon 02 Jan 15:04:05")
 	if m.loading {
@@ -117,7 +128,20 @@ func (m Model) footer() string {
 	if m.cmdMode {
 		return clip(m.input.View()+m.suggestions(), m.w)
 	}
-	hints := sDim.Render("tab pane · j/k move · enter open · / search · r refresh · ? help · q quit")
+	if m.screen == screenHome {
+		switch items := m.homeItems(); {
+		case m.adding:
+			return clip(m.pathInput.View(), m.w)
+		case m.confirmRm && m.homeCursor < len(items):
+			return sWarn.Render("stop watching " + filepath.Base(items[m.homeCursor].path) + "?  y to confirm, any other key cancels")
+		}
+		hints := sDim.Render("j/k move · enter open · 1-9 jump · a add · d remove · r refresh · ? help · q quit")
+		if m.flash == "" {
+			return clip(hints, m.w)
+		}
+		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
+	}
+	hints := sDim.Render("tab pane · j/k move · enter open · / search · esc home · r refresh · ? help · q quit")
 	if m.flash == "" {
 		return clip(hints, m.w)
 	}
@@ -276,19 +300,22 @@ func (m Model) statusRows(w int) (string, []string) {
 }
 
 func (m Model) tapeRows(w int) (string, []string) {
-	rows := make([]string, 0, len(m.snap.Events))
-	for _, e := range m.snap.Events {
-		tag := strings.ToUpper(e.Kind)
-		st := rankStyle(e.Severity)
-		switch {
-		case e.Kind == "release":
-			st = lipgloss.NewStyle().Foreground(blue)
-		case e.Kind == "status" && e.Severity == 0:
-			st = sOK
-		}
-		rows = append(rows, sDim.Render(e.At.Format("Jan02 15:04"))+" "+st.Render(pad(tag, 7))+" "+e.Title)
+	rows := make([]string, 0, len(m.events))
+	for _, e := range m.events {
+		rows = append(rows, eventLine(e))
 	}
 	return "newest first · new vulns, releases and status changes", rows
+}
+
+func eventLine(e store.Event) string {
+	st := rankStyle(e.Severity)
+	switch {
+	case e.Kind == "release":
+		st = lipgloss.NewStyle().Foreground(blue)
+	case e.Kind == "status" && e.Severity == 0:
+		st = sOK
+	}
+	return sDim.Render(e.At.Format("Jan02 15:04")) + " " + st.Render(pad(strings.ToUpper(e.Kind), 7)) + " " + e.Title
 }
 
 func (m Model) fullBox(lines []string) string {
@@ -382,11 +409,16 @@ func helpLines() []string {
 		row("r", "refresh now"),
 		row("q", "quit"),
 		"",
-		sBold.Render("Search") + sDim.Render("  (press / or :)"),
+		sBold.Render("Home") + sDim.Render("  (esc from a project)"),
+		row("j/k, enter", "pick a project (1-9 jumps straight in)"),
+		row("a", "add a project directory (prefilled with where you launched oryn)"),
+		row("d", "stop watching the selected project"),
+		"",
+		sBold.Render("Search") + sDim.Render("  (press / or :, inside a project)"),
 		row("any letters", "fuzzy-find a package, e.g. `lod`, `chi`"),
 		row("tab", "complete best match"),
 		row("enter", "open best match"),
-		row("p  v  s  t", "portfolio · vulns · status · tape"),
+		row("h  p  v  s  t", "home · portfolio · vulns · status · tape"),
 		row("r  ?  q", "refresh · help · quit"),
 		"",
 		sDim.Render("Config: ~/.config/oryn/config.toml · data: ~/.local/share/oryn/oryn.db"),

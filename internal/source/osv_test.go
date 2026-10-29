@@ -55,3 +55,19 @@ func TestOutdated(t *testing.T) {
 		}
 	}
 }
+
+func TestCrateIndexPath(t *testing.T) {
+	cases := map[string]string{
+		"a":     "1/a",
+		"ab":    "2/ab",
+		"abc":   "3/a/abc",
+		"serde": "se/rd/serde",
+		"Tokio": "to/ki/tokio",
+		"abcd":  "ab/cd/abcd",
+	}
+	for in, want := range cases {
+		if got := crateIndexPath(in); got != want {
+			t.Errorf("crateIndexPath(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

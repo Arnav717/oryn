@@ -19,16 +19,30 @@ type Snapshot struct {
 	Vulns    map[string][]source.Vuln // by source.DepKey
 	Latest   map[string]string        // by source.PkgKey
 	Status   []source.Status
-	Events   []store.Event
+	Events   []store.Event // newest first, from the store
+	New      []store.Event // events first recorded by this refresh
 	Warnings []string
 	At       time.Time
 }
 
-// VulnList flattens vulns, most severe first.
-func (s *Snapshot) VulnList() []source.Vuln {
+// VulnList flattens vulns across all projects, most severe first.
+func (s *Snapshot) VulnList() []source.Vuln { return s.VulnsFor("") }
+
+// VulnsFor returns vulns affecting deps of one project (all when project is
+// ""), most severe first. Each dependency version counts once.
+func (s *Snapshot) VulnsFor(project string) []source.Vuln {
 	var out []source.Vuln
-	for _, vs := range s.Vulns {
-		out = append(out, vs...)
+	seen := map[string]bool{}
+	for _, d := range s.Deps {
+		if project != "" && d.Project != project {
+			continue
+		}
+		k := source.DepKey(d)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, s.Vulns[k]...)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		ri, rj := source.SeverityRank(out[i].Severity), source.SeverityRank(out[j].Severity)
@@ -80,8 +94,18 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 // recordEvents turns snapshot facts into tape events. The store dedupes, so
 // only things not seen before show up as new.
 func recordEvents(st *store.Store, snap *Snapshot) error {
+	record := func(e store.Event) error {
+		if e.At.IsZero() {
+			e.At = time.Now()
+		}
+		isNew, err := st.Record(e)
+		if isNew {
+			snap.New = append(snap.New, e)
+		}
+		return err
+	}
 	for _, v := range snap.VulnList() {
-		_, err := st.Record(store.Event{
+		err := record(store.Event{
 			Key:      fmt.Sprintf("vuln:%s:%s:%s@%s", v.ID, v.Ecosystem, v.Package, v.Version),
 			Kind:     "vuln",
 			Severity: source.SeverityRank(v.Severity),
@@ -102,7 +126,7 @@ func recordEvents(st *store.Store, snap *Snapshot) error {
 			continue
 		}
 		seen[k] = true
-		_, err := st.Record(store.Event{
+		err := record(store.Event{
 			Key:    "release:" + k + "@" + latest,
 			Kind:   "release",
 			Entity: k,
@@ -135,7 +159,7 @@ func recordEvents(st *store.Store, snap *Snapshot) error {
 		case "critical":
 			sev = 4
 		}
-		_, err = st.Record(store.Event{
+		err = record(store.Event{
 			Key:      fmt.Sprintf("status:%s:%d", s.Service, time.Now().UnixNano()),
 			Kind:     "status",
 			Severity: sev,

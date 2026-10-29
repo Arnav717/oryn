@@ -27,29 +27,49 @@ make install              # → ~/.local/bin/oryn
 ## Use
 
 ```sh
-cd ~/code/myapp && oryn add    # watch a project (once)
-oryn                           # open the terminal
-oryn ls · oryn rm · oryn scan
+oryn                 # home screen: pick a project
+oryn add             # watch the current directory (once per project)
+oryn daemon          # background refresh + desktop alerts
+oryn ls · rm · scan · version
 ```
 
-With nothing watched, `oryn` uses the current directory.
+`oryn` opens a **home screen** listing your projects with live counts (deps,
+vulnerabilities, outdated). The project you launched from is preselected.
+`enter` (or `1`-`9`) opens a project's dashboard; `esc` comes back. Add and
+remove projects from the home screen with `a` and `d`, or pick "All projects"
+for the combined view.
 
-Keys: `tab` switch pane · `j/k` move · `enter` open · `/` search ·
+Home keys: `j/k` move · `enter` open · `1-9` jump · `a` add · `d` remove ·
 `r` refresh · `?` help · `q` quit.
 
+Dashboard keys: `tab` switch pane · `j/k` move · `enter` open package ·
+`/` search · `esc` home · `r` refresh · `?` help · `q` quit.
+
 Search: press `/`, type a few letters (`lod`, `chi`). Matches appear live;
-`tab` completes, `enter` opens. Single letters jump: `p` portfolio, `v` vulns,
-`s` status, `t` tape.
+`tab` completes, `enter` opens. Single letters jump: `h` home, `p` portfolio,
+`v` vulns, `s` status, `t` tape.
+
+### Background alerts
+
+`oryn daemon` re-scans on the refresh interval and sends a desktop
+notification for new high/critical vulnerabilities and upstream status
+changes (`notify-send` on Linux, `osascript` on macOS). The first run records
+a silent baseline so you aren't flooded with everything that already exists.
+Run it at login with the systemd unit in `contrib/oryn.service`.
 
 ## What it watches
 
 | Pane      | Source                                             |
 |-----------|----------------------------------------------------|
-| Portfolio | `package-lock.json`, `go.mod`, `requirements*.txt` |
-| Vulns     | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI advisories) |
-| Latest    | npm registry, PyPI, Go module proxy (direct deps)  |
+| Portfolio | `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.mod`, `Cargo.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt` |
+| Vulns     | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI, RustSec advisories) |
+| Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
 | Upstream  | statuspage `/api/v2/status.json` endpoints         |
 | Tape      | every new vuln, release and status change, stored in SQLite |
+
+Direct vs. transitive comes from the lockfile where it records it (npm, pnpm,
+Cargo, uv) and from the sibling `package.json` / `pyproject.toml` otherwise
+(yarn, poetry).
 
 Config: `~/.config/oryn/config.toml` (see `config.example.toml`).
 Data: `~/.local/share/oryn/oryn.db`.
@@ -57,7 +77,8 @@ Data: `~/.local/share/oryn/oryn.db`.
 ## Layout
 
 ```
-cmd/oryn/          entrypoint: tui, scan
+cmd/oryn/          entrypoint: tui, scan, daemon
+internal/notify/   desktop notifications
 internal/config/   config loading
 internal/detect/   lockfile parsers
 internal/source/   OSV, registries, status pages
@@ -68,7 +89,7 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- v0.2: `oryn daemon` + desktop notifications, alert rules, custom layouts,
-  exec-based custom sources/panes, pnpm/yarn/poetry/uv/Cargo lockfiles
-- v0.3: GitHub PR/CI queue, LLM + cloud cost desk, upgrade desk
+- v0.3: GitHub PR/CI queue, LLM + cloud cost desk, upgrade desk, more home
+  sections (the home menu is built to take new entries)
 - v0.4: AI changelog impact analysis, daily brief
+- later: custom layouts, exec-based custom sources/panes, team sync

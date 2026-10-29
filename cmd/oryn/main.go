@@ -20,6 +20,9 @@ import (
 	"github.com/Arnav717/oryn/internal/tui"
 )
 
+// version is overridden at release time with -ldflags "-X main.version=...".
+var version = "0.2.0"
+
 type multiFlag []string
 
 func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
@@ -28,19 +31,23 @@ func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
 const usage = `oryn - a terminal for everything that affects your code
 
 Usage:
-  oryn              open the terminal
+  oryn              open the terminal (home screen)
   oryn add [dir]    watch a project (default: current dir)
   oryn rm [dir]     stop watching a project
   oryn ls           list watched projects
   oryn scan         print a report and exit
-
-With no watched projects, oryn uses the current directory.
+  oryn daemon       refresh in the background, send desktop alerts
+  oryn version      print the version
 
 Flags:
 `
 
 func main() {
 	args := os.Args[1:]
+	if len(args) > 0 && (args[0] == "version" || args[0] == "-v" || args[0] == "--version") {
+		fmt.Println("oryn", version)
+		return
+	}
 	cmd := "tui"
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		cmd, args = args[0], args[1:]
@@ -69,15 +76,20 @@ func main() {
 	case "ls", "list":
 		listProjects(cfg)
 		return
+	case "daemon":
+		daemon(*cfgPath, *dbPath)
+		return
 	}
 
 	if len(projects) > 0 {
 		cfg.Projects = nil
+		cfg.Ephemeral = true // -p is a one-off view; the TUI must not persist it
 		for _, p := range projects {
 			cfg.Projects = append(cfg.Projects, config.ExpandHome(p))
 		}
 	}
-	if len(cfg.Projects) == 0 {
+	// The TUI's home screen handles "nothing watched"; scan needs something to read.
+	if len(cfg.Projects) == 0 && cmd != "tui" {
 		wd, err := os.Getwd()
 		if err != nil {
 			fatal(err)

@@ -1,8 +1,7 @@
 # Copy to ~/.config/oryn/config.toml
 
-# Project roots to watch. Each is scanned (4 levels deep) for
-# package-lock.json, go.mod and requirements*.txt.
-# Default when empty: the current directory. `-p dir` overrides.
+# Project roots to watch. Each is scanned (4 levels deep) for lockfiles.
+# Normally managed with `oryn add` / `oryn rm` or the home screen.
 projects = [
   "~/code/myapp",
   "~/code/api",

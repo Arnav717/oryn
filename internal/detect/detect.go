@@ -9,9 +9,10 @@ import (
 
 // Ecosystem names match OSV's ecosystem identifiers.
 const (
-	NPM  = "npm"
-	Go   = "Go"
-	PyPI = "PyPI"
+	NPM    = "npm"
+	Go     = "Go"
+	PyPI   = "PyPI"
+	Crates = "crates.io"
 )
 
 type Dep struct {
@@ -37,8 +38,18 @@ func parserFor(name string) parser {
 	switch {
 	case name == "package-lock.json":
 		return parseNPMLock
+	case name == "pnpm-lock.yaml":
+		return parsePNPMLock
+	case name == "yarn.lock":
+		return parseYarnLock
 	case name == "go.mod":
 		return parseGoMod
+	case name == "Cargo.lock":
+		return parseCargoLock
+	case name == "uv.lock":
+		return parseUVLock
+	case name == "poetry.lock":
+		return parsePoetryLock
 	case strings.HasPrefix(name, "requirements") && strings.HasSuffix(name, ".txt"):
 		return parseRequirements
 	}

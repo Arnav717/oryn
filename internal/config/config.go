@@ -25,6 +25,9 @@ type Config struct {
 	RefreshEvery   time.Duration `toml:"-"`
 	Path           string        `toml:"-"`
 	customServices bool
+
+	// Ephemeral marks a config whose projects came from -p and must not be saved.
+	Ephemeral bool `toml:"-"`
 }
 
 var DefaultServices = []Service{

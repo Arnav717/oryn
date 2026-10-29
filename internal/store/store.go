@@ -82,6 +82,13 @@ func (s *Store) Record(e Event) (bool, error) {
 	return n > 0, err
 }
 
+// HasEvents reports whether anything has been recorded yet.
+func (s *Store) HasEvents() (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM events)`).Scan(&n)
+	return n == 1, err
+}
+
 // LastTitle returns the title of the newest event of kind for entity.
 func (s *Store) LastTitle(kind, entity string) (string, error) {
 	var t string

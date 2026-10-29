@@ -63,3 +63,21 @@ func forEach[T any](items []T, n int, fn func(T)) {
 		<-done
 	}
 }
+
+func getText(ctx context.Context, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GET %s: %s", url, resp.Status)
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	return string(b), err
+}

@@ -1,0 +1,16 @@
+# Run the oryn daemon in the background and get desktop alerts.
+#
+#   mkdir -p ~/.config/systemd/user
+#   cp contrib/oryn.service ~/.config/systemd/user/
+#   systemctl --user enable --now oryn
+#   journalctl --user -u oryn -f          # watch it work
+[Unit]
+Description=oryn background watcher
+
+[Service]
+ExecStart=%h/.local/bin/oryn daemon
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target

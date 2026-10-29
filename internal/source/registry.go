@@ -2,11 +2,13 @@ package source
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 
 	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 
 	"github.com/Arnav717/oryn/internal/detect"
 )
@@ -28,6 +30,8 @@ func Latest(ctx context.Context, ecosystem, name string) (string, error) {
 		}
 		err := getJSON(ctx, "https://pypi.org/pypi/"+name+"/json", &r)
 		return r.Info.Version, err
+	case detect.Crates:
+		return latestCrate(ctx, name)
 	case detect.Go:
 		esc, err := module.EscapePath(name)
 		if err != nil {
@@ -73,4 +77,52 @@ func LatestAll(ctx context.Context, deps []detect.Dep) map[string]string {
 // deps (no current version) are never outdated.
 func Outdated(current, latest string) bool {
 	return current != "" && latest != "" && strings.TrimPrefix(current, "v") != strings.TrimPrefix(latest, "v")
+}
+
+// crateIndexPath is the sparse-index path for a crate name.
+func crateIndexPath(name string) string {
+	n := strings.ToLower(name)
+	switch len(n) {
+	case 0:
+		return ""
+	case 1, 2:
+		return fmt.Sprintf("%d/%s", len(n), n)
+	case 3:
+		return "3/" + n[:1] + "/" + n
+	}
+	return n[:2] + "/" + n[2:4] + "/" + n
+}
+
+// latestCrate returns the highest non-yanked, non-prerelease version from the
+// crates.io sparse index (one JSON object per line, one per version).
+func latestCrate(ctx context.Context, name string) (string, error) {
+	path := crateIndexPath(name)
+	if path == "" {
+		return "", fmt.Errorf("empty crate name")
+	}
+	body, err := getText(ctx, "https://index.crates.io/"+path)
+	if err != nil {
+		return "", err
+	}
+	best := ""
+	for _, line := range strings.Split(body, "\n") {
+		var v struct {
+			Vers   string `json:"vers"`
+			Yanked bool   `json:"yanked"`
+		}
+		if line == "" || json.Unmarshal([]byte(line), &v) != nil || v.Yanked {
+			continue
+		}
+		sv := "v" + v.Vers
+		if !semver.IsValid(sv) || semver.Prerelease(sv) != "" {
+			continue
+		}
+		if best == "" || semver.Compare(sv, "v"+best) > 0 {
+			best = v.Vers
+		}
+	}
+	if best == "" {
+		return "", fmt.Errorf("no stable release of %s", name)
+	}
+	return best, nil
 }
