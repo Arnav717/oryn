@@ -22,7 +22,7 @@ import (
 )
 
 // version is overridden at release time with -ldflags "-X main.version=...".
-var version = "0.3.0"
+var version = "0.4.0"
 
 type multiFlag []string
 
@@ -181,9 +181,31 @@ func scan(cfg *config.Config, st *store.Store) {
 			fmt.Printf("  mine    %-34s ci=%-8s %s\n", pr.Ref(), orDash(pr.CI), pr.Title)
 		}
 	}
+	if len(snap.RepoRefs) > 0 {
+		fmt.Println("\nREPOS")
+		for _, p := range cfg.Projects {
+			ref, ok := snap.RepoRefs[p]
+			if !ok {
+				continue
+			}
+			if d := snap.Repos[p]; d != nil {
+				fmt.Printf("  %-28s %d PRs, %d issues, %d runs, %d people, %d commits, ci=%s, alerts=%s\n",
+					ref, d.OpenPRs, d.OpenIssues, len(d.Runs), len(d.People), len(d.Commits), orDash(d.DefaultCI), alertsText(d))
+			} else if err := snap.RepoErrs[p]; err != nil {
+				fmt.Printf("  %-28s error: %v\n", ref, err)
+			}
+		}
+	}
 	for _, w := range snap.Warnings {
 		fmt.Fprintln(os.Stderr, "warning:", w)
 	}
+}
+
+func alertsText(d *source.RepoData) string {
+	if !d.AlertsKnown {
+		return "n/a"
+	}
+	return fmt.Sprint(d.AlertCount)
 }
 
 func orDash(s string) string {

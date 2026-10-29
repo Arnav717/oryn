@@ -16,7 +16,7 @@ type size struct{ w, h int }
 // paneSize returns the outer size (including border) of a pane.
 // Layout: portfolio | vulns on top, upstream | tape below.
 func (m *Model) paneSize(p paneID) size {
-	gridH := m.h - 2 // header + footer
+	gridH := m.h - m.chrome() // header, footer and (in a project) the tab bar
 	topH := gridH / 2
 	botH := gridH - topH
 	switch p {
@@ -52,10 +52,15 @@ func (m Model) View() string {
 		body = m.fullBox(lines[min(m.ghOffset, len(lines)):])
 	case m.detail != "":
 		body = m.fullBox(m.detailLines())
+	case m.tabBarVisible() && m.tab == tabGitHub:
+		body = m.repoBody()
 	default:
 		top := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pPortfolio), m.pane(pVulns))
 		bot := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pStatus), m.pane(pTape))
 		body = lipgloss.JoinVertical(lipgloss.Left, top, bot)
+	}
+	if m.tabBarVisible() && !m.showHelp {
+		return lipgloss.JoinVertical(lipgloss.Left, m.header(), m.tabBarView(), body, m.footer())
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.header(), body, m.footer())
 }
@@ -87,7 +92,15 @@ func (m Model) header() string {
 			name = filepath.Base(m.scope)
 		}
 		left += " " + sDim.Render("›") + " " + sBold.Render(name)
-		if m.snap != nil {
+		if d := m.repoDataFor(m.scope); m.tabBarVisible() && m.tab == tabGitHub && d != nil {
+			left += "  " + strings.Join([]string{
+				fmt.Sprintf("★ %d", d.Stars),
+				fmt.Sprintf("%d PRs", d.OpenPRs),
+				fmt.Sprintf("%d issues", d.OpenIssues),
+				ciWord(d.DefaultCI),
+				alertPhrase(d),
+			}, sDim.Render(" · "))
+		} else if m.snap != nil {
 			var crit, high, outdated int
 			for _, v := range m.vulns {
 				switch v.Severity {
@@ -161,6 +174,12 @@ func (m Model) footer() string {
 		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
 	}
 	hints := sDim.Render("tab pane · j/k move · enter open · / search · esc home · r refresh · ? help · q quit")
+	if m.tabBarVisible() {
+		hints = sDim.Render("tab pane · j/k move · enter open · / search · [ ] tabs · esc home · r refresh · ? help · q quit")
+		if m.tab == tabGitHub {
+			hints = sDim.Render("h/l section · 1-8 jump · j/k move · enter open · o repo · [ ] tabs · esc home · r refresh · ? help · q quit")
+		}
+	}
 	if m.flash == "" {
 		return clip(hints, m.w)
 	}
@@ -338,7 +357,7 @@ func eventLine(e store.Event) string {
 }
 
 func (m Model) fullBox(lines []string) string {
-	cw, ch := m.w-2, m.h-4
+	cw, ch := m.w-2, m.h-m.chrome()-2
 	if m.detail != "" {
 		m.detailOff = min(m.detailOff, max(0, len(lines)-ch))
 		lines = lines[m.detailOff:]
@@ -433,9 +452,15 @@ func helpLines() []string {
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
 		"",
-		sBold.Render("GitHub") + sDim.Render("  (open it from home)"),
+		sBold.Render("GitHub inbox") + sDim.Render("  (open it from home)"),
 		row("j/k, enter", "move · open the PR in your browser"),
 		row("esc", "back to home"),
+		"",
+		sBold.Render("Project tabs") + sDim.Render("  (inside a single project)"),
+		row("[  ]", "previous / next tab (Dependencies, GitHub)"),
+		row("h/l or 1-8", "GitHub: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
+		row("enter / o", "GitHub: open the selected row / the repo in your browser"),
+		row("/g  /d", "jump to the GitHub / Dependencies tab"),
 		"",
 		sBold.Render("Search") + sDim.Render("  (press / or :, inside a project)"),
 		row("any letters", "fuzzy-find a package, e.g. `lod`, `chi`"),

@@ -142,6 +142,8 @@ func (m *Model) openScope(scope string) {
 	m.cursor = [numPanes]int{}
 	m.offset = [numPanes]int{}
 	m.detail = ""
+	m.tab, m.rsub = tabDeps, svOverview
+	m.rcur, m.roff = [numSubs]int{}, [numSubs]int{}
 	if m.snap != nil {
 		m.index()
 		m.clampAll()
@@ -297,14 +299,14 @@ func (m Model) homeLines() []string {
 	n := len(m.cfg.Projects)
 	loaded := m.snap != nil
 
-	const nameW, depsW, vulnW, outW = 20, 7, 20, 10
-	pathW := max(8, cw-6-nameW-depsW-vulnW-outW)
+	const nameW, depsW, vulnW, outW, ghW = 20, 7, 20, 10, 18
+	pathW := max(8, cw-6-nameW-depsW-vulnW-outW-ghW)
 
 	lines := []string{sTitle.Render("PROJECTS") + sDim.Render(fmt.Sprintf("  %d watched", n)), ""}
 	if n == 0 {
 		lines = append(lines, sDim.Render("  Nothing watched yet. Pick a directory below to start."), "")
 	} else {
-		lines = append(lines, sDim.Render("      "+pad("PROJECT", nameW)+pad("PATH", pathW)+pad("DEPS", depsW)+pad("VULNS", vulnW)+"OUTDATED"))
+		lines = append(lines, sDim.Render("      "+pad("PROJECT", nameW)+pad("PATH", pathW)+pad("DEPS", depsW)+pad("VULNS", vulnW)+pad("OUTDATED", outW)+"GITHUB"))
 	}
 
 	addGap, sawIntegrations := true, false
@@ -358,7 +360,11 @@ func (m Model) homeLines() []string {
 				vulns, outdated = sBad.Render("directory missing"), ""
 			}
 		}
-		lines = append(lines, marker+num+pad(name, nameW)+pad(path, pathW)+pad(deps, depsW)+pad(vulns, vulnW)+outdated)
+		ghCell := ""
+		if it.kind == itemProject && loaded {
+			ghCell = m.repoCell(it.path)
+		}
+		lines = append(lines, marker+num+pad(name, nameW)+pad(path, pathW)+pad(deps, depsW)+pad(vulns, vulnW)+pad(outdated, outW)+ghCell)
 	}
 
 	lines = append(lines, "", sTitle.Render("UPSTREAM"))

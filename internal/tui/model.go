@@ -91,6 +91,11 @@ type Model struct {
 	ghCursor int
 	ghOffset int
 
+	tab  projTab
+	rsub subView
+	rcur [numSubs]int
+	roff [numSubs]int
+
 	cwd         string
 	homeCursor  int
 	adding      bool
@@ -189,6 +194,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.index()
 		m.clampAll()
 		m.ghClamp()
+		m.repoClamp()
 		m.flash = "updated " + m.snap.At.Format("15:04:05")
 		if n := len(m.snap.Warnings); n > 0 {
 			m.flash += fmt.Sprintf(" · %d warning(s): %s", n, m.snap.Warnings[0])
@@ -255,6 +261,10 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleGHKey(k)
 	}
 
+	if m.screen == screenProject && m.tab == tabGitHub {
+		return m.handleRepoKey(k)
+	}
+
 	if m.detail != "" {
 		switch k.String() {
 		case "esc", "q", "backspace", "h", "left":
@@ -274,6 +284,10 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc":
 		m.screen = screenHome
+	case "]":
+		m.switchTab(1)
+	case "[":
+		m.switchTab(-1)
 	case ":", "/":
 		return m.openCommand()
 	case "?":

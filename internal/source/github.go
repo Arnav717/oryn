@@ -57,18 +57,21 @@ func GitHubToken() string {
 	return ""
 }
 
-const githubQuery = `
-query($mine: String!, $review: String!) {
-  viewer { login }
-  mine: search(query: $mine, type: ISSUE, first: 50) { nodes { ...pr } }
-  review: search(query: $review, type: ISSUE, first: 50) { nodes { ...pr } }
-}
+// prFields is the PR selection shared by the account-wide and per-repo queries.
+const prFields = `
 fragment pr on PullRequest {
   number title url isDraft updatedAt reviewDecision
   repository { nameWithOwner }
   author { login }
   commits(last: 1) { nodes { commit { oid statusCheckRollup { state } } } }
 }`
+
+const githubQuery = `
+query($mine: String!, $review: String!) {
+  viewer { login }
+  mine: search(query: $mine, type: ISSUE, first: 50) { nodes { ...pr } }
+  review: search(query: $review, type: ISSUE, first: 50) { nodes { ...pr } }
+}` + prFields
 
 type ghNode struct {
 	Number         int

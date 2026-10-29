@@ -11,6 +11,11 @@ projects = [
 # available via `gh auth login` or GH_TOKEN; set to false to disable.
 # github = true
 
+# Map a project folder to a GitHub repo when its git remote isn't the one you
+# want (oryn normally detects it from `origin`).
+# [repos]
+# "~/code/app" = "owner/name"
+
 # Auto-refresh interval.
 refresh = "10m"
 

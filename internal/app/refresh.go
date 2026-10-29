@@ -11,6 +11,7 @@ import (
 
 	"github.com/Arnav717/oryn/internal/config"
 	"github.com/Arnav717/oryn/internal/detect"
+	"github.com/Arnav717/oryn/internal/gitrepo"
 	"github.com/Arnav717/oryn/internal/source"
 	"github.com/Arnav717/oryn/internal/store"
 )
@@ -21,9 +22,12 @@ type Snapshot struct {
 	Latest    map[string]string        // by source.PkgKey
 	Status    []source.Status
 	GitHub    *source.GitHubData
-	GitHubErr error         // source.ErrNoToken when not connected
-	Events    []store.Event // newest first, from the store
-	New       []store.Event // events first recorded by this refresh
+	GitHubErr error                       // source.ErrNoToken when not connected
+	Repos     map[string]*source.RepoData // by project path
+	RepoErrs  map[string]error            // by project path
+	RepoRefs  map[string]gitrepo.Ref      // detected repo per project, even when the fetch failed
+	Events    []store.Event               // newest first, from the store
+	New       []store.Event               // events first recorded by this refresh
 	Warnings  []string
 	At        time.Time
 }
@@ -72,11 +76,17 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 
 	var wg sync.WaitGroup
 	var vulnErr error
-	wg.Add(4)
+	wg.Add(5)
 	go func() {
 		defer wg.Done()
 		if cfg.GitHubEnabled() {
 			snap.GitHub, snap.GitHubErr = source.FetchGitHub(ctx)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if cfg.GitHubEnabled() {
+			fetchRepos(ctx, cfg, snap)
 		}
 	}()
 	go func() { defer wg.Done(); snap.Vulns, vulnErr = source.QueryOSV(ctx, snap.Deps) }()
@@ -101,6 +111,127 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 		snap.Events = evs
 	}
 	return snap
+}
+
+// RepoFor resolves a project folder to its GitHub repo: the config override
+// first, then the folder's git remote.
+func RepoFor(cfg *config.Config, project string) (gitrepo.Ref, bool) {
+	if v, ok := cfg.Repos[project]; ok {
+		return gitrepo.ParseRef(v)
+	}
+	return gitrepo.Detect(project)
+}
+
+// fetchRepos fills snap.Repos/RepoErrs/RepoRefs for every project that maps to
+// a GitHub repo. Projects sharing a repo share one fetch.
+func fetchRepos(ctx context.Context, cfg *config.Config, snap *Snapshot) {
+	snap.RepoRefs = map[string]gitrepo.Ref{}
+	var refs []gitrepo.Ref
+	for _, p := range cfg.Projects {
+		if ref, ok := RepoFor(cfg, p); ok {
+			snap.RepoRefs[p] = ref
+			refs = append(refs, ref)
+		}
+	}
+	if len(refs) == 0 {
+		return
+	}
+	data, errs, err := source.FetchRepos(ctx, refs)
+	if err != nil { // no token; the account-wide fetch reports it
+		return
+	}
+	snap.Repos = map[string]*source.RepoData{}
+	snap.RepoErrs = map[string]error{}
+	for p, ref := range snap.RepoRefs {
+		if d := data[ref]; d != nil {
+			snap.Repos[p] = d
+		} else if e := errs[ref]; e != nil {
+			snap.RepoErrs[p] = e
+		}
+	}
+}
+
+// recordRepoEvents records activity on watched repos. A repo seen for the
+// first time is a silent baseline, so adding a project with 50 open issues
+// doesn't produce 50 alerts.
+func recordRepoEvents(st *store.Store, snap *Snapshot, record func(store.Event) error) error {
+	review := map[string]bool{}
+	if snap.GitHub != nil {
+		for _, pr := range snap.GitHub.Review {
+			review[pr.Ref()] = true
+		}
+	}
+	done := map[string]bool{}
+	for _, p := range sortedKeys(snap.Repos) {
+		d := snap.Repos[p]
+		if done[d.Ref.String()] {
+			continue
+		}
+		done[d.Ref.String()] = true
+
+		first, err := st.Record(store.Event{
+			Key: "repo:" + d.Ref.String(), Kind: "repo", Entity: d.Ref.String(),
+			Title: "watching " + d.Ref.String() + " on GitHub", URL: d.URL,
+		})
+		if err != nil {
+			return err
+		}
+		rec := record
+		if first { // baseline: store, but don't surface as new
+			rec = func(e store.Event) error { _, err := st.Record(e); return err }
+		}
+
+		for _, is := range d.Issues {
+			if is.Author == d.Viewer {
+				continue
+			}
+			err := rec(store.Event{
+				Key: fmt.Sprintf("issue:%s#%d", d.Ref, is.Number), Kind: "issue", Severity: 1, Entity: d.Ref.String(),
+				Title: fmt.Sprintf("new issue %s#%d %s (%s)", d.Ref, is.Number, is.Title, is.Author), URL: is.URL, At: is.Created,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		for _, pr := range d.PRs {
+			if pr.Author == d.Viewer || review[pr.Ref()] { // review requests already alert
+				continue
+			}
+			err := rec(store.Event{
+				Key: "pr:" + pr.Ref(), Kind: "pr", Severity: 1, Entity: d.Ref.String(),
+				Title: fmt.Sprintf("new PR %s %s (%s)", pr.Ref(), pr.Title, pr.Author), URL: pr.URL, At: pr.Updated,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		if d.DefaultCI == "FAILURE" || d.DefaultCI == "ERROR" {
+			sha := ""
+			if len(d.Commits) > 0 {
+				sha = d.Commits[0].SHA
+				if len(sha) > 7 {
+					sha = sha[:7]
+				}
+			}
+			err := rec(store.Event{
+				Key: fmt.Sprintf("ci:%s@%s", d.Ref, sha), Kind: "ci", Severity: 3, Entity: d.Ref.String(),
+				Title: fmt.Sprintf("CI failing on %s %s", d.Ref, d.DefaultBranch), URL: d.URL,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // recordEvents turns snapshot facts into tape events. The store dedupes, so
@@ -164,6 +295,10 @@ func recordEvents(st *store.Store, snap *Snapshot) error {
 				return err
 			}
 		}
+	}
+
+	if err := recordRepoEvents(st, snap, record); err != nil {
+		return err
 	}
 
 	seen := map[string]bool{}

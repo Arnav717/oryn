@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
 	"testing"
 	"time"
 
@@ -83,4 +84,14 @@ func TestHumanAge(t *testing.T) {
 			t.Errorf("humanAge(-%v) = %q, want %q", d, got, want)
 		}
 	}
+}
+
+func keyMsg(k string) tea.KeyMsg {
+	switch k {
+	case "esc":
+		return tea.KeyMsg{Type: tea.KeyEsc}
+	case "enter":
+		return tea.KeyMsg{Type: tea.KeyEnter}
+	}
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
 }

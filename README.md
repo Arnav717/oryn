@@ -49,12 +49,39 @@ Search: press `/`, type a few letters (`lod`, `chi`). Matches appear live;
 `tab` completes, `enter` opens. Single letters jump: `h` home, `p` portfolio,
 `v` vulns, `s` status, `t` tape.
 
-### GitHub
+### Projects are containers
 
-The home screen has a **GitHub** row under *Integrations*. Open it to see PRs
-waiting on your review and your own open PRs, with CI state, review state and
-age. Your own PRs are sorted so failing CI and requested changes come first.
-`enter` opens the PR in your browser.
+Opening a project gives you tabs (`[` and `]` switch): **Dependencies** and
+**GitHub**. The GitHub tab is read from the folder's git remote (`origin`
+first); no setup needed. It has eight sections (`h`/`l` or `1`-`8`):
+
+| Section  | Shows                                                         |
+|----------|---------------------------------------------------------------|
+| Overview | stars, forks, default-branch CI, latest release/commit/run, and a **Needs attention** list (failing CI, PRs awaiting your review, issues assigned to you, critical alerts) |
+| PRs      | open PRs with CI, review state, author, age                   |
+| Issues   | open issues with labels, comments, author, age                |
+| Actions  | recent workflow runs and their status                         |
+| Commits  | recent commits on the default branch                          |
+| People   | collaborators with their role, plus contributors with commit counts |
+| Releases | recent releases                                               |
+| Alerts   | open Dependabot alerts (needs admin access to the repo)       |
+
+`enter` opens the selected row in your browser, `o` opens the repo. The home
+screen shows each project's open PRs and issues in a GITHUB column.
+
+If a folder's remote isn't GitHub (or you want a different repo), map it:
+
+```toml
+[repos]
+"~/code/app" = "owner/name"
+```
+
+### GitHub inbox
+
+The home screen also has a **GitHub** row under *Integrations*: PRs waiting on
+your review and your own open PRs across every repo, with CI state, review
+state and age. Your own PRs are sorted so failing CI and requested changes
+come first. `enter` opens the PR in your browser.
 
 oryn reads your login from the GitHub CLI (`gh auth login`) or `GH_TOKEN` /
 `GITHUB_TOKEN`. It stores nothing, and the token is only sent to
@@ -64,7 +91,9 @@ oryn reads your login from the GitHub CLI (`gh auth login`) or `GH_TOKEN` /
 
 `oryn daemon` re-scans on the refresh interval and sends a desktop
 notification for new high/critical vulnerabilities, upstream status changes,
-new review requests and failing CI on your PRs (`notify-send` on Linux, `osascript` on macOS). The first run records
+new review requests, failing CI, and new issues or PRs from other people on
+your watched repos. A repo you've just added is a silent baseline, so its
+existing issues don't all fire at once (`notify-send` on Linux, `osascript` on macOS). The first run records
 a silent baseline so you aren't flooded with everything that already exists.
 Run it at login with the systemd unit in `contrib/oryn.service`.
 
@@ -76,7 +105,7 @@ Run it at login with the systemd unit in `contrib/oryn.service`.
 | Vulns     | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI, RustSec advisories) |
 | Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
 | Upstream  | statuspage `/api/v2/status.json` endpoints         |
-| GitHub    | GraphQL API: review requests, your PRs, CI status |
+| GitHub    | GraphQL + REST API: review requests, your PRs, and per-repo PRs, issues, Actions, commits, people, releases, Dependabot alerts |
 | Tape      | every new vuln, release and status change, stored in SQLite |
 
 Direct vs. transitive comes from the lockfile where it records it (npm, pnpm,
@@ -91,6 +120,7 @@ Data: `~/.local/share/oryn/oryn.db`.
 ```
 cmd/oryn/          entrypoint: tui, scan, daemon
 internal/browser/  open URLs
+internal/gitrepo/  folder → GitHub repo
 internal/notify/   desktop notifications
 internal/config/   config loading
 internal/detect/   lockfile parsers
@@ -102,6 +132,7 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- v0.4: LLM + cloud cost desk, upgrade desk (outdated deps ranked by risk)
-- v0.5: AI changelog impact analysis, daily brief
+- v0.5: LLM + cloud cost desk, upgrade desk (outdated deps ranked by risk)
+- v0.6: AI changelog impact analysis, daily brief
+- more per-project tabs: deploys, branches, discussions, code scanning
 - later: custom layouts, exec-based custom sources/panes, team sync

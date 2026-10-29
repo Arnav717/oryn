@@ -14,7 +14,22 @@ var commands = map[string]func(m *Model) tea.Cmd{
 	"r": func(m *Model) tea.Cmd { return m.startRefresh() },
 	"?": func(m *Model) tea.Cmd { m.showHelp = true; return nil },
 	"h": func(m *Model) tea.Cmd { m.screen = screenHome; return nil },
-	"g": func(m *Model) tea.Cmd { m.screen = screenGitHub; m.ghClamp(); return nil },
+	// Inside a project g opens its GitHub tab; elsewhere, your account-wide inbox.
+	"g": func(m *Model) tea.Cmd {
+		if m.tabBarVisible() {
+			m.setTab(tabGitHub)
+		} else {
+			m.screen = screenGitHub
+			m.ghClamp()
+		}
+		return nil
+	},
+	"d": func(m *Model) tea.Cmd {
+		if m.tabBarVisible() {
+			m.setTab(tabDeps)
+		}
+		return nil
+	},
 	"p": func(m *Model) tea.Cmd { m.focus = pPortfolio; return nil },
 	"v": func(m *Model) tea.Cmd { m.focus = pVulns; return nil },
 	"s": func(m *Model) tea.Cmd { m.focus = pStatus; return nil },
@@ -27,6 +42,7 @@ var aliases = map[string]string{
 	"help":    "?",
 	"home":    "h",
 	"gh":      "g", "github": "g",
+	"deps": "d", "dependencies": "d",
 	"port": "p", "portfolio": "p",
 	"c": "v", "cve": "v", "vuln": "v", "vulns": "v",
 	"status": "s", "up": "s",

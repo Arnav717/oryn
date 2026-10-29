@@ -23,6 +23,10 @@ type Config struct {
 	Refresh  string    `toml:"refresh"`
 	GitHub   *bool     `toml:"github"` // nil = on whenever a token is available
 
+	// Repos overrides the GitHub repo detected from a project's git remote:
+	// [repos] "~/code/app" = "owner/name".
+	Repos map[string]string `toml:"repos"`
+
 	RefreshEvery   time.Duration `toml:"-"`
 	Path           string        `toml:"-"`
 	customServices bool
@@ -76,6 +80,13 @@ func Load(path string) (*Config, error) {
 	for i, p := range c.Projects {
 		c.Projects[i] = ExpandHome(p)
 	}
+	if len(c.Repos) > 0 {
+		expanded := make(map[string]string, len(c.Repos))
+		for path, repo := range c.Repos {
+			expanded[ExpandHome(path)] = repo
+		}
+		c.Repos = expanded
+	}
 	return c, nil
 }
 
@@ -85,11 +96,18 @@ func (c *Config) GitHubEnabled() bool { return c.GitHub == nil || *c.GitHub }
 // Save writes the config back to Path. Built-in services are not persisted.
 func (c *Config) Save() error {
 	out := struct {
-		Projects []string  `toml:"projects"`
-		Refresh  string    `toml:"refresh,omitempty"`
-		GitHub   *bool     `toml:"github,omitempty"`
-		Services []Service `toml:"service,omitempty"`
+		Projects []string          `toml:"projects"`
+		Refresh  string            `toml:"refresh,omitempty"`
+		GitHub   *bool             `toml:"github,omitempty"`
+		Services []Service         `toml:"service,omitempty"`
+		Repos    map[string]string `toml:"repos,omitempty"`
 	}{Refresh: c.Refresh, GitHub: c.GitHub}
+	if len(c.Repos) > 0 {
+		out.Repos = map[string]string{}
+		for path, repo := range c.Repos {
+			out.Repos[ShortHome(path)] = repo
+		}
+	}
 	for _, p := range c.Projects {
 		out.Projects = append(out.Projects, ShortHome(p))
 	}
