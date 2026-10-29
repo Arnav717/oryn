@@ -13,7 +13,7 @@ import (
 
 var client = &http.Client{Timeout: 20 * time.Second}
 
-const userAgent = "tape/0.1 (+https://github.com/vontrix/tape)"
+const userAgent = "oryn/0.1 (+https://github.com/Arnav717/oryn)"
 
 func getJSON(ctx context.Context, url string, out any) error {
 	return doJSON(ctx, http.MethodGet, url, nil, out)

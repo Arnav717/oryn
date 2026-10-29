@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/mod/semver"
 
-	"github.com/vontrix/tape/internal/detect"
+	"github.com/Arnav717/oryn/internal/detect"
 )
 
 const osvAPI = "https://api.osv.dev/v1"

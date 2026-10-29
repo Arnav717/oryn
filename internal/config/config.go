@@ -1,4 +1,4 @@
-// Package config loads ~/.config/tape/config.toml.
+// Package config loads ~/.config/oryn/config.toml.
 package config
 
 import (
@@ -46,7 +46,7 @@ func DefaultPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "tape", "config.toml")
+	return filepath.Join(dir, "oryn", "config.toml")
 }
 
 // Load reads the config at path. A missing file is not an error.

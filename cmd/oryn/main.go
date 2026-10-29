@@ -1,4 +1,4 @@
-// Command tape is a terminal for everything that affects your code.
+// Command oryn is a terminal for everything that affects your code.
 package main
 
 import (
@@ -13,11 +13,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/vontrix/tape/internal/app"
-	"github.com/vontrix/tape/internal/config"
-	"github.com/vontrix/tape/internal/source"
-	"github.com/vontrix/tape/internal/store"
-	"github.com/vontrix/tape/internal/tui"
+	"github.com/Arnav717/oryn/internal/app"
+	"github.com/Arnav717/oryn/internal/config"
+	"github.com/Arnav717/oryn/internal/source"
+	"github.com/Arnav717/oryn/internal/store"
+	"github.com/Arnav717/oryn/internal/tui"
 )
 
 type multiFlag []string
@@ -25,16 +25,16 @@ type multiFlag []string
 func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
 func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
 
-const usage = `tape - a terminal for everything that affects your code
+const usage = `oryn - a terminal for everything that affects your code
 
 Usage:
-  tape              open the terminal
-  tape add [dir]    watch a project (default: current dir)
-  tape rm [dir]     stop watching a project
-  tape ls           list watched projects
-  tape scan         print a report and exit
+  oryn              open the terminal
+  oryn add [dir]    watch a project (default: current dir)
+  oryn rm [dir]     stop watching a project
+  oryn ls           list watched projects
+  oryn scan         print a report and exit
 
-With no watched projects, tape uses the current directory.
+With no watched projects, oryn uses the current directory.
 
 Flags:
 `
@@ -46,7 +46,7 @@ func main() {
 		cmd, args = args[0], args[1:]
 	}
 
-	fs := flag.NewFlagSet("tape", flag.ExitOnError)
+	fs := flag.NewFlagSet("oryn", flag.ExitOnError)
 	var projects multiFlag
 	fs.Var(&projects, "p", "project directory to watch (repeatable; default: config or current dir)")
 	cfgPath := fs.String("config", config.DefaultPath(), "config file")
@@ -190,7 +190,7 @@ func editProjects(cfg *config.Config, dirs []string, add bool) {
 
 func listProjects(cfg *config.Config) {
 	if len(cfg.Projects) == 0 {
-		fmt.Println("no watched projects; `tape add` in a project dir to start")
+		fmt.Println("no watched projects; `oryn add` in a project dir to start")
 		return
 	}
 	for _, p := range cfg.Projects {
@@ -199,6 +199,6 @@ func listProjects(cfg *config.Config) {
 }
 
 func fatal(err error) {
-	fmt.Fprintln(os.Stderr, "tape:", err)
+	fmt.Fprintln(os.Stderr, "oryn:", err)
 	os.Exit(1)
 }

@@ -1,4 +1,4 @@
-module github.com/vontrix/tape
+module github.com/Arnav717/oryn
 
 go 1.26.6
 

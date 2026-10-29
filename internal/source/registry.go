@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/mod/module"
 
-	"github.com/vontrix/tape/internal/detect"
+	"github.com/Arnav717/oryn/internal/detect"
 )
 
 // Latest returns the latest published version of a package.

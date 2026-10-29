@@ -42,11 +42,11 @@ func DefaultPath() string {
 	if dir == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return "tape.db"
+			return "oryn.db"
 		}
 		dir = filepath.Join(home, ".local", "share")
 	}
-	return filepath.Join(dir, "tape", "tape.db")
+	return filepath.Join(dir, "oryn", "oryn.db")
 }
 
 func Open(path string) (*Store, error) {

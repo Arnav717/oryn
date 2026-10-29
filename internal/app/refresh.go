@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vontrix/tape/internal/config"
-	"github.com/vontrix/tape/internal/detect"
-	"github.com/vontrix/tape/internal/source"
-	"github.com/vontrix/tape/internal/store"
+	"github.com/Arnav717/oryn/internal/config"
+	"github.com/Arnav717/oryn/internal/detect"
+	"github.com/Arnav717/oryn/internal/source"
+	"github.com/Arnav717/oryn/internal/store"
 )
 
 type Snapshot struct {

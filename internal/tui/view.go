@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/vontrix/tape/internal/detect"
+	"github.com/Arnav717/oryn/internal/detect"
 )
 
 type size struct{ w, h int }
@@ -54,7 +54,7 @@ func (m Model) View() string {
 }
 
 func (m Model) header() string {
-	left := sLogo.Render("TAPE")
+	left := sLogo.Render("ORYN")
 	if m.snap != nil {
 		var crit, high, outdated, down int
 		for _, v := range m.vulns {
@@ -371,7 +371,7 @@ func registryURL(eco, name string) string {
 func helpLines() []string {
 	row := func(k, d string) string { return "  " + sAccent.Render(pad(k, 22)) + d }
 	return []string{
-		sTitle.Render("TAPE HELP") + sDim.Render("   any key to close"),
+		sTitle.Render("ORYN HELP") + sDim.Render("   any key to close"),
 		"",
 		sBold.Render("Navigation"),
 		row("tab / shift+tab, h/l", "next / previous pane"),
@@ -389,6 +389,6 @@ func helpLines() []string {
 		row("p  v  s  t", "portfolio · vulns · status · tape"),
 		row("r  ?  q", "refresh · help · quit"),
 		"",
-		sDim.Render("Config: ~/.config/tape/config.toml · data: ~/.local/share/tape/tape.db"),
+		sDim.Render("Config: ~/.config/oryn/config.toml · data: ~/.local/share/oryn/oryn.db"),
 	}
 }

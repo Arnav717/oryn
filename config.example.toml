@@ -1,4 +1,4 @@
-# Copy to ~/.config/tape/config.toml
+# Copy to ~/.config/oryn/config.toml
 
 # Project roots to watch. Each is scanned (4 levels deep) for
 # package-lock.json, go.mod and requirements*.txt.

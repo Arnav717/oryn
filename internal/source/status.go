@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vontrix/tape/internal/config"
+	"github.com/Arnav717/oryn/internal/config"
 )
 
 type Status struct {
