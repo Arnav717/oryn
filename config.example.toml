@@ -11,6 +11,10 @@ projects = [
 # available via `gh auth login` or GH_TOKEN; set to false to disable.
 # github = true
 
+# Also watch status pages of vendors found in your lockfiles (Sentry, Twilio,
+# MongoDB, ...). On by default.
+# stack_status = true
+
 # Map a project folder to a GitHub repo when its git remote isn't the one you
 # want (oryn normally detects it from `origin`).
 # [repos]
