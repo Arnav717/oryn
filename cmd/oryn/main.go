@@ -38,6 +38,7 @@ Usage:
   oryn rm [dir]     stop watching a project
   oryn ls           list watched projects
   oryn scan         print a report and exit
+  oryn deploys      show where each project deploys and its recent deployments
   oryn daemon       refresh in the background, send desktop alerts
   oryn version      print the version
 
@@ -122,6 +123,8 @@ func main() {
 		}
 	case "scan", "s":
 		scan(cfg, st)
+	case "deploys", "deploy":
+		deploys(cfg)
 	default:
 		fs.Usage()
 		os.Exit(2)

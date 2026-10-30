@@ -90,3 +90,9 @@ func getText(ctx context.Context, url string) (string, error) {
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	return string(b), err
 }
+
+// DoJSONH is the exported form of doJSONH for packages that call
+// authenticated APIs. Headers never appear in returned errors.
+func DoJSONH(ctx context.Context, method, url string, headers map[string]string, body, out any) error {
+	return doJSONH(ctx, method, url, headers, body, out)
+}
