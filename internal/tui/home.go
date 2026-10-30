@@ -198,6 +198,10 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.homeCursor = len(items) - 1
 	case "enter", "l", "right":
 		return m.activate(items[m.homeCursor])
+	case "D":
+		m.screen = screenDeploys
+		m.dpCursor, m.dpOffset = 0, 0
+		m.dpClamp()
 	case "c":
 		m.screen = screenChanges
 		m.chCursor, m.chOffset, m.chExpand = 0, 0, false
@@ -375,6 +379,8 @@ func (m Model) homeLines() []string {
 	}
 
 	lines = append(lines, m.sinceLines()...)
+
+	lines = append(lines, m.deployLines()...)
 
 	lines = append(lines, "", sTitle.Render("UPSTREAM"))
 	lines = append(lines, m.upstreamLines()...)

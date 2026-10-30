@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/BurntSushi/toml"
 )
+
+// Supported platforms: Vercel, Netlify and Cloudflare Pages. More are
+// deliberately out of scope until these three are solid.
 
 // Link ties a project folder to one deployment target on a platform.
 type Link struct {
-	Platform string // vercel, netlify, cloudflare, fly, render, railway, firebase
+	Platform string // vercel, netlify, cloudflare
 	Project  string // watched project root
 	Ref      string // platform's project/site/app identifier; "" when only a config file was found
 	Team     string // org or team id when the platform needs one
@@ -61,30 +62,15 @@ func Detect(root string) []Link {
 
 	for _, f := range []string{"wrangler.toml", "wrangler.json", "wrangler.jsonc"} {
 		if p, ok := exists(f); ok {
-			add(Link{Platform: "cloudflare", Ref: wranglerName(p), Marker: f})
+			l := Link{Platform: "cloudflare", Ref: wranglerName(p), Marker: f}
+			if !wranglerIsPages(p) {
+				l.Ref = "" // plain Workers: detected, but not queryable yet
+			}
+			add(l)
 			break
 		}
 	}
 
-	if p, ok := exists("fly.toml"); ok {
-		var v struct {
-			App string `toml:"app"`
-		}
-		toml.DecodeFile(p, &v)
-		add(Link{Platform: "fly", Ref: v.App, Marker: "fly.toml"})
-	}
-
-	for _, m := range []struct{ file, platform string }{
-		{"render.yaml", "render"},
-		{"railway.json", "railway"},
-		{"railway.toml", "railway"},
-		{"firebase.json", "firebase"},
-	} {
-		if _, ok := exists(m.file); ok {
-			add(Link{Platform: m.platform, Marker: m.file})
-			break
-		}
-	}
 	return dedupe(out)
 }
 
@@ -98,6 +84,11 @@ func dedupe(in []Link) []Link {
 		}
 	}
 	return out
+}
+
+func wranglerIsPages(path string) bool {
+	b, err := os.ReadFile(path)
+	return err == nil && strings.Contains(string(b), "pages_build_output_dir")
 }
 
 func readJSON(path string, v any) {

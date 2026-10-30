@@ -38,7 +38,7 @@ Usage:
   oryn rm [dir]     stop watching a project
   oryn ls           list watched projects
   oryn scan         print a report and exit
-  oryn deploys      show where each project deploys and its recent deployments
+  oryn deploys      show where each project deploys (Vercel, Netlify, Cloudflare Pages)
   oryn daemon       refresh in the background, send desktop alerts
   oryn version      print the version
 

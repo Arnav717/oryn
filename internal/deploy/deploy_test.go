@@ -24,9 +24,8 @@ func TestDetect(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, ".vercel/project.json", `{"projectId":"prj_1","orgId":"team_9"}`)
 	write(t, root, "netlify.toml", "")
-	write(t, root, "wrangler.jsonc", `{ // worker
-  "name": "edge-api" }`)
-	write(t, root, "fly.toml", `app = "my-fly"`)
+	write(t, root, "wrangler.jsonc", `{ // pages
+  "name": "edge-api", "pages_build_output_dir": "dist" }`)
 
 	got := map[string]Link{}
 	for _, l := range Detect(root) {
@@ -38,8 +37,13 @@ func TestDetect(t *testing.T) {
 	if l := got["netlify"]; l.Linked() || l.Marker != "netlify.toml" {
 		t.Errorf("netlify should be detected but unlinked: %+v", l)
 	}
-	if got["cloudflare"].Ref != "edge-api" || got["fly"].Ref != "my-fly" {
-		t.Errorf("cloudflare/fly: %+v %+v", got["cloudflare"], got["fly"])
+	if got["cloudflare"].Ref != "edge-api" {
+		t.Errorf("cloudflare: %+v", got["cloudflare"])
+	}
+	worker := t.TempDir()
+	write(t, worker, "wrangler.toml", `name = "just-a-worker"`)
+	if l := Detect(worker); len(l) != 1 || l[0].Linked() {
+		t.Errorf("plain worker should be detected but not linked: %+v", l)
 	}
 	if len(Detect(t.TempDir())) != 0 {
 		t.Error("empty dir should detect nothing")
@@ -98,5 +102,34 @@ func TestNoCredentials(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if _, err := NewVercel().List(context.Background(), Link{Ref: "p"}, 1); err != ErrNoCredentials {
 		t.Fatalf("want ErrNoCredentials, got %v", err)
+	}
+}
+
+func TestCloudflareList(t *testing.T) {
+	t.Setenv("CLOUDFLARE_API_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acc1")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/client/v4/accounts/acc1/pages/projects/edge-api/deployments" || r.Header.Get("Authorization") != "Bearer tok" {
+			http.Error(w, "bad request", 400)
+			return
+		}
+		w.Write([]byte(`{"success":true,"result":[
+		 {"id":"c1","environment":"production","url":"https://c1.edge-api.pages.dev","created_on":"2026-10-30T10:00:00Z",
+		  "deployment_trigger":{"metadata":{"branch":"main","commit_hash":"deadbeef123","commit_message":"ship it"}},
+		  "latest_stage":{"name":"deploy","status":"success"}},
+		 {"id":"c2","environment":"preview","url":"https://c2.edge-api.pages.dev","created_on":"2026-10-30T11:00:00Z",
+		  "deployment_trigger":{"metadata":{}},"latest_stage":{"name":"build","status":"failure"}}]}`))
+	}))
+	defer srv.Close()
+	c := &Cloudflare{base: srv.URL}
+	got, err := c.List(context.Background(), Link{Ref: "edge-api"}, 5)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("got %+v err %v", got, err)
+	}
+	if d := got[0]; d.State != StateReady || d.Target != "production" || d.Commit != "deadbee" || d.Branch != "main" {
+		t.Errorf("c1: %+v", d)
+	}
+	if d := got[1]; d.State != StateError || d.Target != "preview" {
+		t.Errorf("c2: %+v", d)
 	}
 }

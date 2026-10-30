@@ -21,6 +21,7 @@ type Snapshot struct {
 	Vulns     map[string][]source.Vuln // by source.DepKey
 	Latest    map[string]string        // by source.PkgKey
 	Status    []source.Status
+	Deploys   []DeployTarget
 	GitHub    *source.GitHubData
 	GitHubErr error                       // source.ErrNoToken when not connected
 	Repos     map[string]*source.RepoData // by project path
@@ -81,7 +82,7 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 
 	var wg sync.WaitGroup
 	var vulnErr error
-	wg.Add(5)
+	wg.Add(6)
 	go func() {
 		defer wg.Done()
 		if cfg.GitHubEnabled() {
@@ -97,6 +98,7 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 	go func() { defer wg.Done(); snap.Vulns, vulnErr = source.QueryOSV(ctx, snap.Deps) }()
 	go func() { defer wg.Done(); snap.Latest = source.LatestAll(ctx, snap.Deps) }()
 	go func() { defer wg.Done(); snap.Status = source.CheckStatus(ctx, services) }()
+	go func() { defer wg.Done(); fetchDeploys(ctx, cfg, snap) }()
 	wg.Wait()
 	if vulnErr != nil {
 		snap.Warnings = append(snap.Warnings, "osv: "+vulnErr.Error())
@@ -303,6 +305,9 @@ func recordEvents(st *store.Store, snap *Snapshot) error {
 	}
 
 	if err := recordRepoEvents(st, snap, record); err != nil {
+		return err
+	}
+	if err := recordDeployEvents(snap, record); err != nil {
 		return err
 	}
 

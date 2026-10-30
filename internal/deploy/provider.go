@@ -45,6 +45,8 @@ func ProviderFor(platform string) Provider {
 		return NewVercel()
 	case "netlify":
 		return NewNetlify()
+	case "cloudflare":
+		return NewCloudflare()
 	}
 	return nil
 }

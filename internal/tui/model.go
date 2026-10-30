@@ -66,6 +66,7 @@ const (
 	screenHome screen = iota
 	screenProject
 	screenChanges
+	screenDeploys
 	screenGitHub
 )
 
@@ -91,6 +92,7 @@ type Model struct {
 
 	chCursor, chOffset int // changes screen
 	chExpand           bool
+	dpCursor, dpOffset int // deploys screen
 
 	ghCursor int
 	ghOffset int
@@ -272,6 +274,8 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleGHKey(k)
 	case screenChanges:
 		return m.handleChangesKey(k)
+	case screenDeploys:
+		return m.handleDeployKey(k)
 	}
 
 	if m.screen == screenProject && m.tab == tabGitHub {
