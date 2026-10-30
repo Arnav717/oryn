@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -112,7 +113,11 @@ func main() {
 	switch cmd {
 	case "tui":
 		p := tea.NewProgram(tui.New(cfg, st), tea.WithAltScreen())
-		if _, err := p.Run(); err != nil {
+		_, err := p.Run()
+		// Mark the end of this visit so only events from while you were away
+		// count as new next time.
+		st.SetMeta("last_seen", strconv.FormatInt(time.Now().Unix(), 10))
+		if err != nil {
 			fatal(err)
 		}
 	case "scan", "s":
