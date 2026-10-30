@@ -151,3 +151,26 @@ func (s *Store) TouchLastSeen(now time.Time) (time.Time, error) {
 	}
 	return prev, s.SetMeta("last_seen", strconv.FormatInt(now.Unix(), 10))
 }
+
+// Since returns events after t (repo baselines excluded), most severe first,
+// then newest first.
+func (s *Store) Since(after time.Time) ([]Event, error) {
+	rows, err := s.db.Query(
+		`SELECT key, kind, severity, entity, title, url, ts FROM events
+		 WHERE ts > ? AND kind != 'repo' ORDER BY severity DESC, ts DESC, id DESC LIMIT 2000`, after.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Event
+	for rows.Next() {
+		var e Event
+		var ts int64
+		if err := rows.Scan(&e.Key, &e.Kind, &e.Severity, &e.Entity, &e.Title, &e.URL, &ts); err != nil {
+			return nil, err
+		}
+		e.At = time.Unix(ts, 0)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

@@ -432,8 +432,13 @@ func (m Model) upstreamLines() []string {
 			lines = append(lines, "  "+sWarn.Render("● "+pad(s.Service, 14)+s.Description))
 		}
 	}
+	via := m.stackVia()
 	if len(lines) == 0 {
-		return []string{"  " + sOK.Render(fmt.Sprintf("● all %d services operational", ok))}
+		lines = []string{"  " + sOK.Render(fmt.Sprintf("● all %d services operational", ok))}
+		if via != "" {
+			lines = append(lines, "  "+sDim.Render("  from your stack: "+via))
+		}
+		return lines
 	}
 	if ok > 0 {
 		lines = append(lines, "  "+sDim.Render(fmt.Sprintf("%d others operational", ok)))
@@ -460,6 +465,9 @@ func (m Model) upstreamPart() string {
 func (m Model) sinceEvents() []store.Event {
 	if m.snap == nil || m.since.IsZero() {
 		return nil
+	}
+	if m.sinceLoaded {
+		return m.sinceDB
 	}
 	var out []store.Event
 	seen := map[string]bool{}
@@ -504,4 +512,29 @@ func shortAgo(d time.Duration) string {
 		return fmt.Sprintf("%dh", int(d.Hours()))
 	}
 	return fmt.Sprintf("%dd", int(d.Hours()/24))
+}
+
+// loadSince reads everything newer than the previous visit from the store,
+// since the in-memory tape only holds the latest 200 events.
+func (m *Model) loadSince() {
+	m.sinceLoaded = false
+	if m.st == nil || m.since.IsZero() {
+		return
+	}
+	evs, err := m.st.Since(m.since)
+	if err != nil {
+		return
+	}
+	m.sinceDB, m.sinceLoaded = evs, true
+}
+
+// stackVia names services watched because of a lockfile dependency.
+func (m Model) stackVia() string {
+	var parts []string
+	for _, s := range m.snap.Status {
+		if s.Via != "" {
+			parts = append(parts, s.Service+" ("+s.Via+")")
+		}
+	}
+	return strings.Join(parts, ", ")
 }

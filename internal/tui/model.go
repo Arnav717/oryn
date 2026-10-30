@@ -96,7 +96,9 @@ type Model struct {
 	rcur [numSubs]int
 	roff [numSubs]int
 
-	since       time.Time // previous visit; zero on first run
+	since       time.Time     // previous visit; zero on first run
+	sinceDB     []store.Event // events since then, straight from the store
+	sinceLoaded bool
 	cwd         string
 	homeCursor  int
 	adding      bool
@@ -196,6 +198,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.snap = msg.snap
 		m.index()
+		m.loadSince()
 		m.clampAll()
 		m.ghClamp()
 		m.repoClamp()
