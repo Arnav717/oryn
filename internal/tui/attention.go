@@ -148,10 +148,10 @@ func githubAttention(m *Model) []attnItem {
 			}
 		}
 		if failing > 0 {
-			out = append(out, attnItem{sev: attnBad, text: fmt.Sprintf("%d of your PRs have failing CI", failing), to: target{section: secGitHub}})
+			out = append(out, attnItem{sev: attnBad, text: failingPRs(failing), to: target{section: secGitHub}})
 		}
 		if review > 0 {
-			out = append(out, attnItem{sev: attnInfo, text: fmt.Sprintf("%d PRs are waiting for your review", review), to: target{section: secGitHub}})
+			out = append(out, attnItem{sev: attnInfo, text: reviewPRs(review), to: target{section: secGitHub}})
 		}
 	}
 	return out
@@ -173,7 +173,7 @@ func healthAttention(m *Model) []attnItem {
 	if crit == 0 {
 		return nil
 	}
-	return []attnItem{{sev: attnBad, text: fmt.Sprintf("%d new critical vulnerabilities", crit), to: target{section: secHealth}}}
+	return []attnItem{{sev: attnBad, text: newCritical(crit), to: target{section: secHealth}}}
 }
 
 // repoAttention lists what on this repo is waiting for the signed-in user.
@@ -202,10 +202,10 @@ func (m *Model) repoAttention(project string, d *source.RepoData) []attnItem {
 		}
 	}
 	if failing > 0 {
-		out = add(out, attnBad, svPRs, fmt.Sprintf("%d of your PRs have failing CI", failing))
+		out = add(out, attnBad, svPRs, failingPRs(failing))
 	}
 	if changes > 0 {
-		out = add(out, attnWarn, svPRs, fmt.Sprintf("%d of your PRs have changes requested", changes))
+		out = add(out, attnWarn, svPRs, changesPRs(changes))
 	}
 	if m.snap != nil && m.snap.GitHub != nil {
 		n := 0
@@ -215,7 +215,7 @@ func (m *Model) repoAttention(project string, d *source.RepoData) []attnItem {
 			}
 		}
 		if n > 0 {
-			out = add(out, attnInfo, svPRs, fmt.Sprintf("%d PRs are waiting for your review", n))
+			out = add(out, attnInfo, svPRs, reviewPRs(n))
 		}
 	}
 	assigned := 0
@@ -225,7 +225,7 @@ func (m *Model) repoAttention(project string, d *source.RepoData) []attnItem {
 		}
 	}
 	if assigned > 0 {
-		out = add(out, attnInfo, svIssues, fmt.Sprintf("%d issues are assigned to you", assigned))
+		out = add(out, attnInfo, svIssues, assignedIssues(assigned))
 	}
 	crit := 0
 	for _, a := range d.Alerts {
@@ -234,7 +234,7 @@ func (m *Model) repoAttention(project string, d *source.RepoData) []attnItem {
 		}
 	}
 	if crit > 0 {
-		out = add(out, attnBad, svAlerts, fmt.Sprintf("%d critical/high security alerts", crit))
+		out = add(out, attnBad, svAlerts, securityAlerts(crit))
 		out[len(out)-1].health = true
 	}
 	return out
@@ -260,4 +260,47 @@ func (m Model) attnRow(it attnItem) string {
 		row += sDim.Render("  " + shortAgo(m.now.Sub(it.at)))
 	}
 	return row
+}
+
+// These read as sentences, so "1" gets its own wording.
+func failingPRs(n int) string {
+	if n == 1 {
+		return "1 of your PRs has failing CI"
+	}
+	return fmt.Sprintf("%d of your PRs have failing CI", n)
+}
+
+func changesPRs(n int) string {
+	if n == 1 {
+		return "1 of your PRs has changes requested"
+	}
+	return fmt.Sprintf("%d of your PRs have changes requested", n)
+}
+
+func reviewPRs(n int) string {
+	if n == 1 {
+		return "1 PR is waiting for your review"
+	}
+	return fmt.Sprintf("%d PRs are waiting for your review", n)
+}
+
+func assignedIssues(n int) string {
+	if n == 1 {
+		return "1 issue is assigned to you"
+	}
+	return fmt.Sprintf("%d issues are assigned to you", n)
+}
+
+func securityAlerts(n int) string {
+	if n == 1 {
+		return "1 critical/high security alert"
+	}
+	return fmt.Sprintf("%d critical/high security alerts", n)
+}
+
+func newCritical(n int) string {
+	if n == 1 {
+		return "1 new critical vulnerability"
+	}
+	return fmt.Sprintf("%d new critical vulnerabilities", n)
 }

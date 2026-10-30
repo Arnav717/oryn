@@ -123,7 +123,7 @@ func (m Model) paletteBody() string {
 		case l.item < 0:
 			lines = append(lines, l.text)
 		case l.item == m.palCur:
-			lines = append(lines, selBar(strings.TrimPrefix(row(items[l.item].title, items[l.item].key), " "), inner))
+			lines = append(lines, selBar(strings.TrimPrefix(row(items[l.item].title, items[l.item].key), "  "), inner))
 		default:
 			lines = append(lines, row(items[l.item].title, sDim.Render(items[l.item].key)))
 		}

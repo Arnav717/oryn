@@ -48,7 +48,7 @@ func TestNeedsYou(t *testing.T) {
 	m := busyModel()
 	items := m.needsYou()
 	got := itemTexts(items)
-	for _, want := range []string{"CI is failing on main", "vercel deploy failed", "1 PRs are waiting for your review"} {
+	for _, want := range []string{"CI is failing on main", "vercel deploy failed", "1 PR is waiting for your review"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
@@ -73,7 +73,7 @@ func TestNeedsYou(t *testing.T) {
 func TestNewCriticalReachesTheQueue(t *testing.T) {
 	m := busyModel()
 	m.snap.Events = []store.Event{{Key: "v", Kind: "vuln", Severity: 4, At: m.now}}
-	if got := itemTexts(m.needsYou()); !strings.Contains(got, "1 new critical vulnerabilities") {
+	if got := itemTexts(m.needsYou()); !strings.Contains(got, "1 new critical vulnerability") {
 		t.Errorf("queue:\n%s", got)
 	}
 }

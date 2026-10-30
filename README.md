@@ -5,17 +5,7 @@
 See what needs you, run agents side by side, ship their work, deploy, and keep
 an eye on GitHub, all from one keyboard-driven screen.
 
-```
- ◆ oryn  Home  Projects  Agents  Deploys  GitHub  Health  Activity         16:27
-┌─ Needs you ─────────────────────────┐┌─ Agents ─────────────────────────────┐
-│▌ api      ● CI is failing on main   ││  ● web     claude  fix the footer    │
-│  web      ● codex is waiting on you ││  ● api     codex   add rate limits   │
-└─────────────────────────────────────┘└──────────────────────────────────────┘
-┌─ Deploys ───────────────────────────┐┌─ GitHub ─────────────────────────────┐
-│  ● web    cloudflare 2h             ││  api#28     Add request tracing      │
-└─────────────────────────────────────┘└──────────────────────────────────────┘
- ~/code/web                         tab switch  enter open  ctrl+p commands
-```
+![oryn's Home screen: what needs you, running agents, deploys and GitHub in one view](docs/screenshots/home.png)
 
 Local-first: no account, no server, no telemetry. Your code never leaves your
 machine. oryn talks directly to the services you connect, and sends only package
@@ -23,6 +13,18 @@ names and versions to public APIs (OSV, npm, PyPI, Go proxy).
 
 > oryn is young and developed on Linux. CI builds it for macOS and Windows, but
 > those aren't tested day to day. Bug reports are very welcome.
+
+## A look
+
+| | |
+|---|---|
+| **Agents.** Every agent in your projects, with the ones waiting on you first. | **Review.** Read what an agent changed, then open a PR or discard it. |
+| ![Agents](docs/screenshots/agents.png) | ![Reviewing an agent's diff](docs/screenshots/review.png) |
+| **A project.** What needs you, where it's live, and recent commits. | **Health.** Vulnerabilities and outdated packages, out of your way. |
+| ![A project's overview](docs/screenshots/project.png) | ![Health](docs/screenshots/health.png) |
+
+`ctrl+p` opens a command palette for every tab, project and action, and Activity
+keeps a timeline of what changed. These screens use made-up projects.
 
 ## What it does
 

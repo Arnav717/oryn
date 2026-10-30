@@ -80,7 +80,7 @@ These aren't style preferences. A PR that breaks one won't be merged.
 - Keep them focused: one change, with tests for the behaviour it adds or fixes.
 - Run `make check` first. CI also builds for Linux, macOS and Windows.
 - Match the code around you. Comments explain why, not what.
-- For UI changes, add a screenshot, and check a narrow terminal (60x14).
+- For UI changes, add a screenshot, and check a narrow terminal (60x14). `make screenshots` renders the README images from made-up demo data, so no real project names end up in them.
 - Follow the look: calm and minimal, one teal accent, no counts or decoration
   that don't earn their place.
 - Commit subjects use [Conventional Commits](https://www.conventionalcommits.org):

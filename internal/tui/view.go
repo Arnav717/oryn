@@ -23,11 +23,16 @@ func (m *Model) paneSize(p paneID) size {
 	gridH := m.h - m.chrome() // header, footer and (in a project) the tab bar
 	botH := max(5, gridH/3)
 	topH := gridH - botH
+	// Vulnerability summaries are long, so on a wide terminal they get more room.
+	left := m.w / 2
+	if m.w >= 120 {
+		left = m.w * 2 / 5
+	}
 	switch p {
 	case pPackages:
-		return size{m.w / 2, topH}
+		return size{left, topH}
 	case pVulns:
-		return size{m.w - m.w/2, topH}
+		return size{m.w - left, topH}
 	}
 	return size{m.w, botH}
 }
@@ -252,8 +257,14 @@ func (m Model) statusLine(hints string) string {
 	}
 	parts := strings.Split(hints, " · ")
 	for i, h := range parts {
-		cut := strings.LastIndex(h, " ")
-		parts[i] = sBold.Render(h[:max(cut, 0)]) + sDim.Render(h[max(cut, 0):])
+		cut := strings.Index(h, " ")
+		if strings.HasPrefix(h, "[ ]") {
+			cut = 3
+		}
+		if cut < 0 {
+			cut = len(h)
+		}
+		parts[i] = sBold.Render(h[:cut]) + sDim.Render(h[cut:])
 	}
 	right := strings.Join(parts, "  ") + " "
 	if gap := m.w - lipgloss.Width(left) - lipgloss.Width(right); gap > 0 {

@@ -154,8 +154,8 @@ func TestAttention(t *testing.T) {
 	m.snap.GitHub.Review = []source.PR{{Repo: "o/r", Number: 3}, {Repo: "other/x", Number: 1}}
 
 	got := strings.Join(m.attention(d), "\n")
-	for _, want := range []string{"CI is failing on main", "1 of your PRs have failing CI", "1 of your PRs have changes requested",
-		"1 PRs are waiting for your review", "1 issues are assigned to you", "1 critical/high security alerts"} {
+	for _, want := range []string{"CI is failing on main", "1 of your PRs has failing CI", "1 of your PRs has changes requested",
+		"1 PR is waiting for your review", "1 issue is assigned to you", "1 critical/high security alert"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("attention missing %q in:\n%s", want, got)
 		}
