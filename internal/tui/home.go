@@ -5,13 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/Arnav717/oryn/internal/config"
 	"github.com/Arnav717/oryn/internal/detect"
 	"github.com/Arnav717/oryn/internal/source"
+	"github.com/Arnav717/oryn/internal/store"
 )
 
 // projStat summarises one project (or all of them) for the home screen.
@@ -367,6 +370,8 @@ func (m Model) homeLines() []string {
 		lines = append(lines, marker+num+pad(name, nameW)+pad(path, pathW)+pad(deps, depsW)+pad(vulns, vulnW)+pad(outdated, outW)+ghCell)
 	}
 
+	lines = append(lines, m.sinceLines()...)
+
 	lines = append(lines, "", sTitle.Render("UPSTREAM"))
 	lines = append(lines, m.upstreamLines()...)
 
@@ -448,4 +453,55 @@ func (m Model) upstreamPart() string {
 		return sBad.Render(fmt.Sprintf("%d upstream issue(s)", down))
 	}
 	return sOK.Render("upstream ok")
+}
+
+// sinceEvents lists tape events newer than the previous visit, most severe
+// first. Repo baselines are bookkeeping, not news.
+func (m Model) sinceEvents() []store.Event {
+	if m.snap == nil || m.since.IsZero() {
+		return nil
+	}
+	var out []store.Event
+	seen := map[string]bool{}
+	for _, e := range append(append([]store.Event(nil), m.snap.New...), m.snap.Events...) {
+		if e.Kind == "repo" || seen[e.Key] || (!e.At.After(m.since) && !isNewKey(m.snap.New, e.Key)) {
+			continue
+		}
+		seen[e.Key] = true
+		out = append(out, e)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Severity > out[j].Severity })
+	return out
+}
+
+func isNewKey(evs []store.Event, key string) bool {
+	return slices.ContainsFunc(evs, func(e store.Event) bool { return e.Key == key })
+}
+
+func (m Model) sinceLines() []string {
+	evs := m.sinceEvents()
+	if len(evs) == 0 {
+		return nil
+	}
+	head := sTitle.Render("SINCE YOU LAST LOOKED") + sDim.Render(fmt.Sprintf("  %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(evs)))
+	lines := []string{"", head}
+	for _, e := range evs[:min(6, len(evs))] {
+		lines = append(lines, "  "+eventLine(e))
+	}
+	if len(evs) > 6 {
+		lines = append(lines, sDim.Render(fmt.Sprintf("  …and %d more on the tape (t)", len(evs)-6)))
+	}
+	return lines
+}
+
+func shortAgo(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "moments"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	}
+	return fmt.Sprintf("%dd", int(d.Hours()/24))
 }

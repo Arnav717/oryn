@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS events (
 	url      TEXT NOT NULL DEFAULT '',
 	ts       INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS events_entity ON events(kind, entity, ts);
 `
@@ -119,4 +121,33 @@ func (s *Store) Recent(limit int) ([]Event, error) {
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// Meta returns a stored value, or "" when unset.
+func (s *Store) Meta(k string) (string, error) {
+	var v string
+	err := s.db.QueryRow(`SELECT v FROM meta WHERE k = ?`, k).Scan(&v)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return v, err
+}
+
+func (s *Store) SetMeta(k, v string) error {
+	_, err := s.db.Exec(`INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v`, k, v)
+	return err
+}
+
+// TouchLastSeen returns when the user last opened the UI (zero on first run)
+// and marks now as the latest visit.
+func (s *Store) TouchLastSeen(now time.Time) (time.Time, error) {
+	v, err := s.Meta("last_seen")
+	if err != nil {
+		return time.Time{}, err
+	}
+	var prev time.Time
+	if n, perr := strconv.ParseInt(v, 10, 64); perr == nil {
+		prev = time.Unix(n, 0)
+	}
+	return prev, s.SetMeta("last_seen", strconv.FormatInt(now.Unix(), 10))
 }

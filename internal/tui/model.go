@@ -96,6 +96,7 @@ type Model struct {
 	rcur [numSubs]int
 	roff [numSubs]int
 
+	since       time.Time // previous visit; zero on first run
 	cwd         string
 	homeCursor  int
 	adding      bool
@@ -142,6 +143,9 @@ func New(cfg *config.Config, st *store.Store) Model {
 		input:     in,
 		pathInput: path,
 		cwd:       cwd,
+	}
+	if st != nil {
+		m.since, _ = st.TouchLastSeen(m.now)
 	}
 	m.homeCursor = m.cwdItem()
 	return m
