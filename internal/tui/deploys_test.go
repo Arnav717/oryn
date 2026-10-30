@@ -24,17 +24,19 @@ func TestDeployLines(t *testing.T) {
 			}},
 		{Link: deploy.Link{Platform: "netlify", Project: "/p/docs", Marker: "netlify.toml"}},
 	}}}
-	out := strings.Join(m.deployLines(), "\n")
-	for _, want := range []string{"DEPLOYS", "web", "error", "main", "abc1234", "not linked"} {
+	rows, _ := deployWinRows(&m)
+	var texts []string
+	for _, r := range rows {
+		texts = append(texts, r.text)
+	}
+	out := strings.Join(texts, "\n")
+	for _, want := range []string{"web", "error", "not linked"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}
 	}
 	if m.deploySummary() == "" || !strings.Contains(m.deploySummary(), "1 failing") {
 		t.Errorf("summary: %q", m.deploySummary())
-	}
-	if (Model{}).deployLines() != nil {
-		t.Error("no snapshot should render nothing")
 	}
 }
 

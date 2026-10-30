@@ -167,22 +167,16 @@ func TestAttention(t *testing.T) {
 
 func TestTabSwitching(t *testing.T) {
 	m := repoModel(fakeRepo(1, 1))
-	m.tab = tabDeploys
-	m.switchTab(1)
-	if m.tab != tabGitHub {
-		t.Errorf("] from deploys -> %d", m.tab)
-	}
-	m.switchTab(1)
-	if m.tab != tabHealth {
-		t.Errorf("] from github -> %d", m.tab)
-	}
-	m.switchTab(1) // wraps
-	if m.tab != tabDeploys {
-		t.Errorf("] from health -> %d", m.tab)
+	m.tab = tabOverview
+	for _, want := range []projTab{tabDeploys, tabGitHub, tabHealth, tabOverview} { // last one wraps
+		m.switchTab(1)
+		if m.tab != want {
+			t.Errorf("] -> %d, want %d", m.tab, want)
+		}
 	}
 	m.scope = ""
 	m.switchTab(1)
-	if m.tab != tabDeploys || m.flash == "" {
+	if m.tab != tabOverview || m.flash == "" {
 		t.Errorf("tabs should be refused for All projects: tab=%d flash=%q", m.tab, m.flash)
 	}
 }

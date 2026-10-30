@@ -125,6 +125,10 @@ type Model struct {
 	runBack   screen
 	keepFlash string // result message that must survive the refresh it triggers
 
+	win    homeWin // focused window on Home
+	winCur [numWins]int
+	ovCur  int // project overview cursor
+
 	ghCursor int
 	ghOffset int
 
@@ -370,6 +374,8 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.screen == screenProject {
 		switch m.tab {
+		case tabOverview:
+			return m.handleOverviewKey(k)
 		case tabDeploys:
 			return m.handleDeployKey(k)
 		case tabGitHub:

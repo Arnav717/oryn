@@ -18,13 +18,14 @@ import (
 type projTab int
 
 const (
-	tabDeploys projTab = iota
+	tabOverview projTab = iota
+	tabDeploys
 	tabGitHub
 	tabHealth
 	numTabs
 )
 
-var tabNames = [numTabs]string{"Deploys", "GitHub", "Health"}
+var tabNames = [numTabs]string{"Overview", "Deploys", "GitHub", "Health"}
 
 // subView is a section of the GitHub tab.
 type subView int
@@ -400,64 +401,6 @@ func alertPhrase(d *source.RepoData) string {
 	return sBad.Render(fmt.Sprintf("%d security alerts", d.AlertCount))
 }
 
-// attention lists what on this repo is waiting for the signed-in user.
-func (m *Model) attention(d *source.RepoData) []string {
-	var out []string
-	if d.DefaultCI == "FAILURE" || d.DefaultCI == "ERROR" {
-		out = append(out, sBad.Render("✗ CI is failing on "+d.DefaultBranch))
-	}
-	var failing, changes int
-	for _, p := range d.PRs {
-		if p.Author != d.Viewer {
-			continue
-		}
-		if p.Failing() {
-			failing++
-		}
-		if p.Review == "CHANGES_REQUESTED" {
-			changes++
-		}
-	}
-	if failing > 0 {
-		out = append(out, sBad.Render(fmt.Sprintf("✗ %d of your PRs have failing CI", failing)))
-	}
-	if changes > 0 {
-		out = append(out, sWarn.Render(fmt.Sprintf("● %d of your PRs have changes requested", changes)))
-	}
-	if m.snap != nil && m.snap.GitHub != nil {
-		n := 0
-		for _, p := range m.snap.GitHub.Review {
-			if p.Repo == d.Ref.String() {
-				n++
-			}
-		}
-		if n > 0 {
-			out = append(out, sAccent.Render(fmt.Sprintf("● %d PRs are waiting for your review", n)))
-		}
-	}
-	assigned := 0
-	for _, i := range d.Issues {
-		for _, a := range i.Assignees {
-			if a == d.Viewer {
-				assigned++
-			}
-		}
-	}
-	if assigned > 0 {
-		out = append(out, sAccent.Render(fmt.Sprintf("● %d issues are assigned to you", assigned)))
-	}
-	var crit int
-	for _, a := range d.Alerts {
-		if source.SeverityRank(a.Severity) >= 3 {
-			crit++
-		}
-	}
-	if crit > 0 {
-		out = append(out, sBad.Render(fmt.Sprintf("▲ %d critical/high security alerts", crit)))
-	}
-	return out
-}
-
 func (m Model) handleRepoKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	d, _ := m.repoState()
 	switch k.String() {
@@ -540,7 +483,7 @@ func (m Model) tabBarView() string {
 			parts = append(parts, sDim.Render(tabNames[t])+strings.TrimPrefix(label, tabNames[t]))
 		}
 	}
-	return " " + strings.Join(parts, sDim.Render("   │   ")) + sDim.Render("      [ ] switch tab")
+	return clip(" "+strings.Join(parts, sDim.Render("   │   "))+sDim.Render("      [ ] switch tab"), m.w)
 }
 
 func orDash(s string) string {

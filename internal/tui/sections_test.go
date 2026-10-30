@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Arnav717/oryn/internal/app"
-	"github.com/Arnav717/oryn/internal/source"
 )
 
 func shellModel() Model {
@@ -99,14 +98,6 @@ func TestEscGoesBack(t *testing.T) {
 	}
 }
 
-func TestProjectOpensOnGitHubNotDependencies(t *testing.T) {
-	m := shellModel()
-	m.openScope("/code/a")
-	if m.tab != tabGitHub {
-		t.Errorf("project opened on tab %d", m.tab)
-	}
-}
-
 func TestHealthTabCoversAllProjects(t *testing.T) {
 	m := shellModel()
 	m.openScope("/code/a")
@@ -119,26 +110,12 @@ func TestHealthTabCoversAllProjects(t *testing.T) {
 func TestAccountsReturnsWhereItOpened(t *testing.T) {
 	m := shellModel()
 	m.openScope("/code/a")
-	m.tab = tabDeploys
 	got := press(t, m, "A")
 	if got.screen != screenAccounts || got.section() != secProjects {
 		t.Fatalf("accounts: screen %d section %d", got.screen, got.section())
 	}
 	if got = press(t, got, "esc"); got.screen != screenProject {
 		t.Errorf("esc from accounts -> %d, want the project", got.screen)
-	}
-}
-
-func TestHomeLeadsWithWorkNotVulns(t *testing.T) {
-	m := shellModel()
-	m.snap.Vulns = map[string][]source.Vuln{"x": {{ID: "CVE-1", Severity: "CRITICAL", Summary: "boom", Package: "lodash"}}}
-	m.index()
-	out := strings.Join(m.homeLines(), "\n")
-	if strings.Contains(out, "lodash") || strings.Contains(out, "CVE-1") {
-		t.Errorf("home lists individual vulnerabilities:\n%s", out)
-	}
-	if strings.Index(out, "PROJECTS") > strings.Index(out, "HEALTH") {
-		t.Errorf("health should come last:\n%s", out)
 	}
 }
 

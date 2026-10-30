@@ -26,12 +26,13 @@ const (
 )
 
 type section struct {
-	title string
-	hints string
-	open  func(m *Model)        // land on the section
-	badge func(m *Model) string // short count on the tab, "" for none
-	keys  func(m Model, k tea.KeyMsg) (tea.Model, tea.Cmd)
-	body  func(m Model) string
+	title     string
+	hints     string
+	open      func(m *Model)            // land on the section
+	badge     func(m *Model) string     // short count on the tab, "" for none
+	attention func(m *Model) []attnItem // what feeds Needs you; nil for none
+	keys      func(m Model, k tea.KeyMsg) (tea.Model, tea.Cmd)
+	body      func(m Model) string
 }
 
 var sections [numSections]section
@@ -42,11 +43,20 @@ func init() {
 	sections = [numSections]section{
 		secHome: {
 			title: "Home",
-			hints: "enter projects · c activity · D deploys · A accounts · r refresh · ? help · q quit",
+			hints: "tab window · j/k move · enter open · c activity · D deploys · A accounts · r refresh · ? help · q quit",
 			open:  func(m *Model) { m.screen = screenHome },
-			badge: func(*Model) string { return "" },
-			keys:  Model.handleHomeKey,
-			body:  func(m Model) string { return m.fullBox(m.homeLines()) },
+			badge: func(m *Model) string {
+				items := m.needsYou()
+				switch {
+				case len(items) == 0:
+					return ""
+				case items[0].sev == attnBad:
+					return sBad.Render(fmt.Sprint(len(items)))
+				}
+				return sAccent.Render(fmt.Sprint(len(items)))
+			},
+			keys: Model.handleHomeKey,
+			body: Model.homeBody,
 		},
 		secProjects: {
 			title: "Projects",
@@ -81,8 +91,9 @@ func init() {
 				}
 				return ""
 			},
-			keys: Model.handleDeployKey,
-			body: func(m Model) string { return m.fullBox(m.deployBody()) },
+			attention: deployAttention,
+			keys:      Model.handleDeployKey,
+			body:      func(m Model) string { return m.fullBox(m.deployBody()) },
 		},
 		secGitHub: {
 			title: "GitHub",
@@ -100,7 +111,8 @@ func init() {
 				}
 				return ""
 			},
-			keys: Model.handleGHKey,
+			attention: githubAttention,
+			keys:      Model.handleGHKey,
 			body: func(m Model) string {
 				lines, _, _ := m.ghLines()
 				return m.fullBox(lines[min(m.ghOffset, len(lines)):])
@@ -116,8 +128,9 @@ func init() {
 				}
 				return ""
 			},
-			keys: Model.handlePaneKey,
-			body: Model.panes,
+			attention: healthAttention,
+			keys:      Model.handlePaneKey,
+			body:      Model.panes,
 		},
 		secActivity: {
 			title: "Activity",

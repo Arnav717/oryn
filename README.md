@@ -46,7 +46,7 @@ tabs from any screen, and `esc` goes back.
 
 | Key | Tab      | Shows                                                       |
 |-----|----------|-------------------------------------------------------------|
-| `1` | Home     | Overview: projects, GitHub, deploys, new activity, one health line |
+| `1` | Home     | Four windows: Needs you, Agents, Deploys, GitHub, plus one health line |
 | `2` | Projects | Every watched project; `enter` opens one, `a` adds, `d` removes |
 | `3` | Agents   | Not built yet: AI agents working across your projects       |
 | `4` | Deploys  | Every deployment on every platform                          |
@@ -56,14 +56,23 @@ tabs from any screen, and `esc` goes back.
 
 Everywhere: `j/k` move · `r` refresh · `?` help · `q` quit.
 
+On Home: `tab` or `h/l` switch window · `enter` opens the selected row. **Needs
+you** ranks what's waiting on you: failed deploys, failing CI, PRs to review,
+assigned issues, upstream outages and critical vulnerabilities that are new
+since your last visit. Vulnerabilities you already know about stay on Health.
+Windows stack on a narrow terminal, and a very short one shows only the focused
+window.
+
 On Health: `tab` switch pane · `enter` open package · `/` search (`lod`, `chi`;
 `tab` completes, `enter` opens).
 
 ### Projects are containers
 
-Opening a project gives you its own tabs (`[` and `]` switch): **Deploys**,
-**GitHub** and **Health**. It opens on GitHub. The GitHub tab is read from the
-folder's git remote (`origin` first); no setup needed. It has eight sections
+Opening a project gives you its own tabs (`[` and `]` switch): **Overview**,
+**Deploys**, **GitHub** and **Health**. It opens on Overview: what needs you
+here, where it's live, GitHub state, health and recent commits. `enter` opens
+the detail for a row, `p` deploys, `D` and `g` jump to Deploys and GitHub. The
+GitHub tab is read from the folder's git remote (`origin` first); no setup needed. It has eight sections
 (`h`/`l`):
 
 | Section  | Shows                                                         |

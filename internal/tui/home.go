@@ -135,32 +135,12 @@ func (m *Model) openScope(scope string) {
 	m.cursor = [numPanes]int{}
 	m.offset = [numPanes]int{}
 	m.detail = ""
-	m.tab, m.rsub = tabGitHub, svOverview
+	m.tab, m.rsub, m.ovCur = tabOverview, svOverview, 0
 	m.rcur, m.roff = [numSubs]int{}, [numSubs]int{}
 	if m.snap != nil {
 		m.index()
 		m.clampAll()
 	}
-}
-
-func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch k.String() {
-	case "q":
-		return m, tea.Quit
-	case "?":
-		m.showHelp = true
-	case "r":
-		return m, m.startRefresh()
-	case "enter":
-		m.openSection(secProjects)
-	case "A":
-		return m.openAccounts("")
-	case "D":
-		m.openSection(secDeploys)
-	case "c":
-		m.openSection(secActivity)
-	}
-	return m, nil
 }
 
 func (m Model) handleProjectsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -297,47 +277,6 @@ func (m Model) removeProject(path string) (tea.Model, tea.Cmd) {
 	}
 	m.clampHome()
 	return m, m.startRefresh()
-}
-
-// homeLines is the overview on the Home tab. Health stays one line at the
-// bottom: it matters, but it isn't what you open oryn to do.
-func (m Model) homeLines() []string {
-	lines := []string{sTitle.Render("PROJECTS") + sDim.Render(fmt.Sprintf("  %d watched", len(m.cfg.Projects)))}
-	if len(m.cfg.Projects) == 0 {
-		lines = append(lines, sDim.Render("  Nothing watched yet. Press 2 to add a project."))
-	}
-	for _, p := range m.cfg.Projects[:min(6, len(m.cfg.Projects))] {
-		lines = append(lines, "  "+pad(filepath.Base(p), 20)+pad(m.repoCell(p), 18)+m.deployCell(p))
-	}
-	if n := len(m.cfg.Projects) - 6; n > 0 {
-		lines = append(lines, sDim.Render(fmt.Sprintf("  and %d more, press 2", n)))
-	}
-
-	if m.cfg.GitHubEnabled() {
-		lines = append(lines, "", sTitle.Render("GITHUB"), "  "+m.ghHomeSummary())
-	}
-
-	lines = append(lines, m.deployLines()...)
-
-	lines = append(lines, "", sTitle.Render("ACTIVITY"))
-	switch n := len(m.sinceEvents()); {
-	case m.since.IsZero():
-		lines = append(lines, sDim.Render("  First visit: changes appear here from your next visit."))
-	case n == 0:
-		lines = append(lines, sDim.Render(fmt.Sprintf("  nothing new since %s ago", shortAgo(m.now.Sub(m.since)))))
-	default:
-		lines = append(lines, fmt.Sprintf("  %d new since %s ago", n, shortAgo(m.now.Sub(m.since)))+sDim.Render("   press 7"))
-	}
-
-	lines = append(lines, "", sTitle.Render("HEALTH"))
-	if m.snap == nil {
-		return append(lines, sDim.Render("  checking…"))
-	}
-	return append(lines, "  "+strings.Join([]string{
-		vulnSummary(m.total.Vulns, m.total.Crit, m.total.High),
-		sWarn.Render(fmt.Sprintf("%d outdated", m.total.Outdated)),
-		m.upstreamPart(),
-	}, sDim.Render(" · "))+sDim.Render("   press 6"))
 }
 
 // projectLines renders the Projects tab.

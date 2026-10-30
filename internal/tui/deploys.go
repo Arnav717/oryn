@@ -59,33 +59,6 @@ func targetNote(t app.DeployTarget) string {
 	return ""
 }
 
-// deployLines is the compact DEPLOYS block on the home screen; nil when no
-// project has any deployment config.
-func (m Model) deployLines() []string {
-	if m.snap == nil || len(m.snap.Deploys) == 0 {
-		return nil
-	}
-	lines := []string{"", sTitle.Render("DEPLOYS")}
-	for _, t := range m.snap.Deploys {
-		name := pad(filepath.Base(t.Link.Project), 20)
-		if note := targetNote(t); note != "" {
-			lines = append(lines, "  "+sDim.Render("? "+name+pad(t.Link.Platform, 12)+note))
-			continue
-		}
-		d, ok := t.Latest("production")
-		if !ok && len(t.Deployments) > 0 {
-			d, ok = t.Deployments[0], true
-		}
-		if !ok {
-			lines = append(lines, "  "+sDim.Render("? "+name+pad(t.Link.Platform, 12)+"no deployments"))
-			continue
-		}
-		lines = append(lines, "  "+deployDot(d.State)+" "+name+pad(t.Link.Platform, 12)+pad(d.State, 10)+
-			sDim.Render(pad(d.Branch, 12)+pad(d.Commit, 9)+ago(d.Created, m.now)))
-	}
-	return lines
-}
-
 type deployRow struct {
 	line   string
 	url    string

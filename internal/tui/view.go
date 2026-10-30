@@ -60,6 +60,8 @@ func (m Model) body() string {
 		return m.fullBox(m.pickLinesScrolled())
 	case m.detail != "":
 		return m.fullBox(m.detailLines())
+	case m.screen == screenProject && m.tab == tabOverview:
+		return m.overviewBody()
 	case m.screen == screenProject && m.tab == tabDeploys:
 		return m.fullBox(m.deployBody())
 	case m.screen == screenProject && m.tab == tabGitHub:
@@ -229,6 +231,8 @@ func (m Model) footer() string {
 
 func (m Model) projectHints() string {
 	switch m.tab {
+	case tabOverview:
+		return "j/k move · enter open · p deploy · D deploys · g github · [ ] tabs · esc projects · r refresh · ? help · q quit"
 	case tabDeploys:
 		return "j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · [ ] tabs · esc projects · r refresh · ? help · q quit"
 	case tabGitHub:
@@ -500,13 +504,18 @@ func helpLines() []string {
 		row("r", "refresh now"),
 		row("q", "quit"),
 		"",
+		sBold.Render("Home"),
+		row("tab / shift+tab, h/l", "next / previous window"),
+		row("enter", "open the selected row"),
+		"",
 		sBold.Render("Projects"),
 		row("enter", "open the project"),
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
-		row("[  ]", "inside a project: previous / next tab (Deploys, GitHub, Health)"),
+		row("[  ]", "inside a project: previous / next tab (Overview, Deploys, GitHub, Health)"),
 		row("h/l", "GitHub tab: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
 		row("enter / o", "GitHub tab: open the selected row / the repo in your browser"),
+		row("p  D  g", "Overview tab: deploy · Deploys tab · GitHub tab"),
 		"",
 		sBold.Render("Deploys"),
 		row("p", "deploy the linked project (asks first)"),
