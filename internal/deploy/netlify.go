@@ -91,6 +91,25 @@ func (n *Netlify) List(ctx context.Context, l Link, limit int) ([]Deployment, er
 	return out, nil
 }
 
+func (n *Netlify) LiveURL(ctx context.Context, l Link) (string, error) {
+	tok := netlifyToken()
+	if tok == "" {
+		return "", ErrNoCredentials
+	}
+	var r struct {
+		SSLURL string `json:"ssl_url"`
+		URL    string `json:"url"`
+	}
+	u := n.base + "/api/v1/sites/" + url.PathEscape(l.Ref)
+	if err := source.DoJSONH(ctx, "GET", u, map[string]string{"Authorization": "Bearer " + tok}, nil, &r); err != nil {
+		return "", err
+	}
+	if r.SSLURL != "" {
+		return r.SSLURL, nil
+	}
+	return r.URL, nil
+}
+
 func netlifyState(s string) string {
 	switch s {
 	case "ready":

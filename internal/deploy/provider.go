@@ -35,6 +35,9 @@ var ErrNoCredentials = errors.New("no credentials")
 type Provider interface {
 	Name() string
 	List(ctx context.Context, l Link, limit int) ([]Deployment, error)
+	// LiveURL is the project's public address: its custom domain if one is
+	// working, else the platform's stable one. Deployment URLs are per-build.
+	LiveURL(ctx context.Context, l Link) (string, error)
 }
 
 // ProviderFor returns the provider for a platform, or nil when oryn can

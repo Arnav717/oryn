@@ -65,6 +65,43 @@ func (c *Cloudflare) List(ctx context.Context, l Link, limit int) ([]Deployment,
 	return out, nil
 }
 
+func (c *Cloudflare) LiveURL(ctx context.Context, l Link) (string, error) {
+	tok, acc := cloudflareCreds()
+	if tok == "" || acc == "" {
+		return "", ErrNoCredentials
+	}
+	auth := map[string]string{"Authorization": "Bearer " + tok}
+	base := c.base + "/client/v4/accounts/" + url.PathEscape(acc) + "/pages/projects/" + url.PathEscape(l.Ref)
+	var p struct {
+		Result struct {
+			Subdomain string `json:"subdomain"`
+		} `json:"result"`
+	}
+	if err := source.DoJSONH(ctx, "GET", base, auth, nil, &p); err != nil {
+		return "", err
+	}
+	// The project's own domain list includes ones still pending, so ask for
+	// status. If that fails the pages.dev address is still right.
+	var d struct {
+		Result []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"result"`
+	}
+	var names []string
+	if err := source.DoJSONH(ctx, "GET", base+"/domains", auth, nil, &d); err == nil {
+		for _, x := range d.Result {
+			if x.Status == "active" {
+				names = append(names, x.Name)
+			}
+		}
+	}
+	if p.Result.Subdomain != "" {
+		names = append(names, p.Result.Subdomain)
+	}
+	return preferCustom(names, ".pages.dev"), nil
+}
+
 // cloudflareState: a deployment is only ready once its final "deploy" stage succeeded.
 func cloudflareState(stage, status string) string {
 	switch status {

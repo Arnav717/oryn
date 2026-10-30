@@ -88,6 +88,46 @@ func (v *Vercel) List(ctx context.Context, l Link, limit int) ([]Deployment, err
 	return out, nil
 }
 
+func (v *Vercel) LiveURL(ctx context.Context, l Link) (string, error) {
+	tok := vercelToken()
+	if tok == "" {
+		return "", ErrNoCredentials
+	}
+	var r struct {
+		Domains []struct {
+			Name      string `json:"name"`
+			Verified  bool   `json:"verified"`
+			Redirect  string `json:"redirect"`
+			GitBranch string `json:"gitBranch"`
+		} `json:"domains"`
+	}
+	u := v.base + "/v9/projects/" + url.PathEscape(l.Ref) + "/domains" + vercelTeamQuery(l)
+	if err := source.DoJSONH(ctx, "GET", u, map[string]string{"Authorization": "Bearer " + tok}, nil, &r); err != nil {
+		return "", err
+	}
+	var names []string
+	for _, d := range r.Domains {
+		if d.Verified && d.Redirect == "" && d.GitBranch == "" {
+			names = append(names, d.Name)
+		}
+	}
+	return preferCustom(names, ".vercel.app"), nil
+}
+
+// preferCustom picks the first domain that isn't on the platform's own suffix,
+// falling back to the first of any kind, as an https URL.
+func preferCustom(names []string, platformSuffix string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	for _, n := range names {
+		if !strings.HasSuffix(n, platformSuffix) {
+			return "https://" + n
+		}
+	}
+	return "https://" + names[0]
+}
+
 func vercelState(s string) string {
 	switch s {
 	case "READY":

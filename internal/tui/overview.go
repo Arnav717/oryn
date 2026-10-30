@@ -88,7 +88,7 @@ func (m Model) liveCell(t app.DeployTarget) string {
 	if !ok {
 		return sDim.Render(name + "no deployments")
 	}
-	return deployDot(d.State) + " " + name + pad(d.State, 9) + d.URL + sDim.Render("  "+shortAgo(m.now.Sub(d.Created)))
+	return deployDot(d.State) + " " + name + pad(d.State, 9) + orDefault(t.LiveURL, d.URL) + sDim.Render("  "+shortAgo(m.now.Sub(d.Created)))
 }
 
 func (m Model) overviewBody() string {

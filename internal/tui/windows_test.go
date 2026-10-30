@@ -225,3 +225,16 @@ func TestOverviewDeployKey(t *testing.T) {
 		t.Errorf("two links: ask %v tab %d flash %q", got.deployAsk, got.tab, got.flash)
 	}
 }
+
+func TestLiveRowShowsThePublicAddress(t *testing.T) {
+	m := busyModel()
+	m.snap.Deploys[0].LiveURL = "https://example.com"
+	cell := m.liveCell(m.snap.Deploys[0])
+	if !strings.Contains(cell, "https://example.com") || strings.Contains(cell, "https://b.dev") {
+		t.Errorf("cell: %q", cell)
+	}
+	m.snap.Deploys[0].LiveURL = ""
+	if cell := m.liveCell(m.snap.Deploys[0]); !strings.Contains(cell, "https://b.dev") {
+		t.Errorf("no public address known should fall back to the deployment: %q", cell)
+	}
+}

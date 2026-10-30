@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -474,5 +475,83 @@ func TestRemove(t *testing.T) {
 	}
 	if RemoverFor("vercel") == nil || RemoverFor("nope") != nil {
 		t.Error("RemoverFor")
+	}
+}
+
+func TestVercelLiveURL(t *testing.T) {
+	t.Setenv("VERCEL_TOKEN", "tok")
+	domains := `[{"name":"x-abc.vercel.app","verified":true}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v9/projects/prj/domains" || r.URL.Query().Get("teamId") != "team_1" {
+			t.Errorf("request %s", r.URL)
+		}
+		fmt.Fprintf(w, `{"domains":%s}`, domains)
+	}))
+	defer srv.Close()
+	v := &Vercel{base: srv.URL}
+	l := Link{Ref: "prj", Team: "team_1"}
+
+	for _, c := range []struct{ domains, want string }{
+		{`[{"name":"x-abc.vercel.app","verified":true}]`, "https://x-abc.vercel.app"},
+		{`[{"name":"x-abc.vercel.app","verified":true},{"name":"example.com","verified":true}]`, "https://example.com"},
+		{`[{"name":"x-abc.vercel.app","verified":true},{"name":"pending.com","verified":false}]`, "https://x-abc.vercel.app"},
+		{`[{"name":"x-abc.vercel.app","verified":true},{"name":"www.example.com","verified":true,"redirect":"example.com"}]`, "https://x-abc.vercel.app"},
+		{`[{"name":"x-abc.vercel.app","verified":true},{"name":"dev.example.com","verified":true,"gitBranch":"dev"}]`, "https://x-abc.vercel.app"},
+		{`[]`, ""},
+	} {
+		domains = c.domains
+		if got, err := v.LiveURL(context.Background(), l); err != nil || got != c.want {
+			t.Errorf("%s: got %q, %v, want %q", c.domains, got, err, c.want)
+		}
+	}
+}
+
+func TestNetlifyLiveURL(t *testing.T) {
+	t.Setenv("NETLIFY_AUTH_TOKEN", "tok")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/sites/site1" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		fmt.Fprint(w, `{"ssl_url":"https://example.com","url":"http://example.com"}`)
+	}))
+	defer srv.Close()
+	if got, err := (&Netlify{base: srv.URL}).LiveURL(context.Background(), Link{Ref: "site1"}); err != nil || got != "https://example.com" {
+		t.Errorf("got %q, %v", got, err)
+	}
+}
+
+func TestCloudflareLiveURL(t *testing.T) {
+	t.Setenv("CLOUDFLARE_API_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acc")
+	domains, status := `[]`, http.StatusOK
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/client/v4/accounts/acc/pages/projects/site":
+			fmt.Fprint(w, `{"result":{"subdomain":"site-x1.pages.dev"}}`)
+		case "/client/v4/accounts/acc/pages/projects/site/domains":
+			w.WriteHeader(status)
+			fmt.Fprintf(w, `{"result":%s}`, domains)
+		default:
+			t.Errorf("path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	c := &Cloudflare{base: srv.URL}
+	l := Link{Ref: "site"}
+
+	for _, tc := range []struct {
+		domains string
+		status  int
+		want    string
+	}{
+		{`[]`, 200, "https://site-x1.pages.dev"},
+		{`[{"name":"example.com","status":"active"}]`, 200, "https://example.com"},
+		{`[{"name":"example.com","status":"pending"}]`, 200, "https://site-x1.pages.dev"},
+		{`[]`, 403, "https://site-x1.pages.dev"},
+	} {
+		domains, status = tc.domains, tc.status
+		if got, err := c.LiveURL(context.Background(), l); err != nil || got != tc.want {
+			t.Errorf("%s %d: got %q, %v, want %q", tc.domains, tc.status, got, err, tc.want)
+		}
 	}
 }

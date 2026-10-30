@@ -16,6 +16,7 @@ import (
 type DeployTarget struct {
 	Link        deploy.Link
 	Deployments []deploy.Deployment // newest first
+	LiveURL     string              // public address; "" when unknown
 	Err         error               // deploy.ErrNoCredentials when no token was found
 	Queryable   bool                // a provider exists and the project is linked
 }
@@ -46,7 +47,10 @@ func fetchDeploys(ctx context.Context, cfg *config.Config, snap *Snapshot) {
 		wg.Add(1)
 		go func(t *DeployTarget) {
 			defer wg.Done()
-			t.Deployments, t.Err = deploy.ProviderFor(t.Link.Platform).List(ctx, t.Link, 10)
+			p := deploy.ProviderFor(t.Link.Platform)
+			if t.Deployments, t.Err = p.List(ctx, t.Link, 10); t.Err == nil {
+				t.LiveURL, _ = p.LiveURL(ctx, t.Link) // the UI falls back to the deployment's URL
+			}
 		}(&targets[i])
 	}
 	wg.Wait()
