@@ -74,6 +74,11 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 		}
 	}
 
+	services := cfg.Services
+	if cfg.StackStatusEnabled() {
+		services = source.MergeServices(services, source.StackServices(snap.Deps))
+	}
+
 	var wg sync.WaitGroup
 	var vulnErr error
 	wg.Add(5)
@@ -91,7 +96,7 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 	}()
 	go func() { defer wg.Done(); snap.Vulns, vulnErr = source.QueryOSV(ctx, snap.Deps) }()
 	go func() { defer wg.Done(); snap.Latest = source.LatestAll(ctx, snap.Deps) }()
-	go func() { defer wg.Done(); snap.Status = source.CheckStatus(ctx, cfg.Services) }()
+	go func() { defer wg.Done(); snap.Status = source.CheckStatus(ctx, services) }()
 	wg.Wait()
 	if vulnErr != nil {
 		snap.Warnings = append(snap.Warnings, "osv: "+vulnErr.Error())
@@ -325,6 +330,9 @@ func recordEvents(st *store.Store, snap *Snapshot) error {
 			continue
 		}
 		title := fmt.Sprintf("%s: %s", s.Service, s.Description)
+		if s.Via != "" && !s.OK() {
+			title += " (you use " + s.Via + ")"
+		}
 		last, err := st.LastTitle("status", s.Service)
 		if err != nil {
 			return err

@@ -15,6 +15,7 @@ import (
 type Service struct {
 	Name string `toml:"name"`
 	URL  string `toml:"url"` // statuspage base URL, e.g. https://www.githubstatus.com
+	Via  string `toml:"-"`   // package that pulled this service in (stack-detected only)
 }
 
 type Config struct {
@@ -22,6 +23,8 @@ type Config struct {
 	Services []Service `toml:"service"`
 	Refresh  string    `toml:"refresh"`
 	GitHub   *bool     `toml:"github"` // nil = on whenever a token is available
+	// StackStatus adds status pages for vendors found in your lockfiles (nil = on).
+	StackStatus *bool `toml:"stack_status"`
 
 	// Repos overrides the GitHub repo detected from a project's git remote:
 	// [repos] "~/code/app" = "owner/name".
@@ -36,17 +39,17 @@ type Config struct {
 }
 
 var DefaultServices = []Service{
-	{"GitHub", "https://www.githubstatus.com"},
-	{"npm", "https://status.npmjs.org"},
-	{"Cloudflare", "https://www.cloudflarestatus.com"},
-	{"Claude", "https://status.claude.com"},
-	{"OpenAI", "https://status.openai.com"},
-	{"Vercel", "https://www.vercel-status.com"},
-	{"Netlify", "https://www.netlifystatus.com"},
-	{"DigitalOcean", "https://status.digitalocean.com"},
-	{"Supabase", "https://status.supabase.com"},
-	{"Docker", "https://www.dockerstatus.com"},
-	{"Discord", "https://discordstatus.com"},
+	{Name: "GitHub", URL: "https://www.githubstatus.com"},
+	{Name: "npm", URL: "https://status.npmjs.org"},
+	{Name: "Cloudflare", URL: "https://www.cloudflarestatus.com"},
+	{Name: "Claude", URL: "https://status.claude.com"},
+	{Name: "OpenAI", URL: "https://status.openai.com"},
+	{Name: "Vercel", URL: "https://www.vercel-status.com"},
+	{Name: "Netlify", URL: "https://www.netlifystatus.com"},
+	{Name: "DigitalOcean", URL: "https://status.digitalocean.com"},
+	{Name: "Supabase", URL: "https://status.supabase.com"},
+	{Name: "Docker", URL: "https://www.dockerstatus.com"},
+	{Name: "Discord", URL: "https://discordstatus.com"},
 }
 
 func DefaultPath() string {
@@ -93,15 +96,19 @@ func Load(path string) (*Config, error) {
 // GitHubEnabled reports whether the GitHub integration is switched on.
 func (c *Config) GitHubEnabled() bool { return c.GitHub == nil || *c.GitHub }
 
+// StackStatusEnabled reports whether lockfile-derived status pages are on.
+func (c *Config) StackStatusEnabled() bool { return c.StackStatus == nil || *c.StackStatus }
+
 // Save writes the config back to Path. Built-in services are not persisted.
 func (c *Config) Save() error {
 	out := struct {
-		Projects []string          `toml:"projects"`
-		Refresh  string            `toml:"refresh,omitempty"`
-		GitHub   *bool             `toml:"github,omitempty"`
-		Services []Service         `toml:"service,omitempty"`
-		Repos    map[string]string `toml:"repos,omitempty"`
-	}{Refresh: c.Refresh, GitHub: c.GitHub}
+		Projects    []string          `toml:"projects"`
+		Refresh     string            `toml:"refresh,omitempty"`
+		GitHub      *bool             `toml:"github,omitempty"`
+		StackStatus *bool             `toml:"stack_status,omitempty"`
+		Services    []Service         `toml:"service,omitempty"`
+		Repos       map[string]string `toml:"repos,omitempty"`
+	}{Refresh: c.Refresh, GitHub: c.GitHub, StackStatus: c.StackStatus}
 	if len(c.Repos) > 0 {
 		out.Repos = map[string]string{}
 		for path, repo := range c.Repos {

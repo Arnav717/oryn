@@ -332,6 +332,9 @@ func (m Model) statusRows(w int) (string, []string) {
 		if !s.OK() {
 			issues++
 		}
+		if s.Via != "" {
+			desc += sDim.Render("  ← " + s.Via)
+		}
 		rows = append(rows, dot+" "+pad(s.Service, 13)+" "+desc)
 	}
 	return fmt.Sprintf("%d services · %d with issues", len(rows), issues), rows

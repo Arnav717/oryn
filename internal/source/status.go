@@ -13,6 +13,7 @@ type Status struct {
 	URL         string
 	Indicator   string // none, minor, major, critical, maintenance; "" on error
 	Description string
+	Via         string // package that pulled this service in; "" when configured
 	Err         error
 	Checked     time.Time
 }
@@ -40,6 +41,7 @@ func CheckStatus(ctx context.Context, services []config.Service) []Status {
 			URL:         svc.URL,
 			Indicator:   r.Status.Indicator,
 			Description: r.Status.Description,
+			Via:         svc.Via,
 			Err:         err,
 			Checked:     time.Now(),
 		}
