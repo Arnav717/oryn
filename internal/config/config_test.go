@@ -30,3 +30,24 @@ func TestReposRoundTrip(t *testing.T) {
 		t.Errorf("after save: projects=%v repos=%v github=%v", c2.Projects, c2.Repos, c2.GitHubEnabled())
 	}
 }
+
+func TestDeployLinkRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.toml")
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetDeployLink("/code/web", "vercel", "prj_1", "team_1")
+	c.SetDeployLink("/code/web", "vercel", "prj_2", "") // replaces, not appends
+	c.SetDeployLink("/code/web", "netlify", "site", "")
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	c2, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c2.DeployLinks) != 2 || c2.DeployLinks[0].Ref != "prj_2" || c2.DeployLinks[0].Team != "" {
+		t.Fatalf("got %+v", c2.DeployLinks)
+	}
+}

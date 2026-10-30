@@ -133,3 +133,73 @@ func TestCloudflareList(t *testing.T) {
 		t.Errorf("c2: %+v", d)
 	}
 }
+
+func TestConnectStoresOnlyVerifiedTokens(t *testing.T) {
+	dir := t.TempDir()
+	SetCredsDir(dir)
+	t.Cleanup(func() { SetCredsDir("") })
+	t.Setenv("VERCEL_TOKEN", "")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		switch r.URL.Path {
+		case "/v2/user":
+			w.Write([]byte(`{"user":{"username":"arnav"}}`))
+		case "/v9/projects":
+			w.Write([]byte(`{"projects":[{"id":"prj_1","name":"web","accountId":"team_7"},{"id":"prj_2","name":"me","accountId":"usr_1"}]}`))
+		}
+	}))
+	defer srv.Close()
+	v := &Vercel{base: srv.URL}
+
+	if _, err := connect(context.Background(), v, "vercel", "bad"); err == nil {
+		t.Fatal("bad token must be rejected")
+	}
+	if Source("vercel") != "" {
+		t.Fatal("rejected token must not be stored")
+	}
+
+	who, err := connect(context.Background(), v, "vercel", " good\n")
+	if err != nil || who != "arnav" {
+		t.Fatalf("who=%q err=%v", who, err)
+	}
+	if Source("vercel") != "oryn" {
+		t.Fatalf("source = %q", Source("vercel"))
+	}
+	fi, err := os.Stat(filepath.Join(dir, "credentials.toml"))
+	if err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("credentials file mode: %v %v", fi, err)
+	}
+
+	ps, err := v.Projects(context.Background())
+	if err != nil || len(ps) != 2 || ps[0].Team != "team_7" || ps[1].Team != "" {
+		t.Fatalf("projects: %+v %v", ps, err)
+	}
+
+	if err := Disconnect("vercel"); err != nil || Source("vercel") != "" {
+		t.Fatalf("disconnect: %v source=%q", err, Source("vercel"))
+	}
+}
+
+func TestCloudflareConnectStoresAccount(t *testing.T) {
+	SetCredsDir(t.TempDir())
+	t.Cleanup(func() { SetCredsDir("") })
+	t.Setenv("CLOUDFLARE_API_TOKEN", "")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"result":[{"id":"acc9","name":"My Acct"}]}`))
+	}))
+	defer srv.Close()
+	who, err := connect(context.Background(), &Cloudflare{base: srv.URL}, "cloudflare", "tok")
+	if err != nil || who != "My Acct" {
+		t.Fatalf("who=%q err=%v", who, err)
+	}
+	if tok, acc := cloudflareCreds(); tok != "tok" || acc != "acc9" {
+		t.Fatalf("creds: %q %q", tok, acc)
+	}
+}

@@ -24,6 +24,9 @@ func vercelToken() string {
 	if t := os.Getenv("VERCEL_TOKEN"); t != "" {
 		return t
 	}
+	if t := stored("vercel_token"); t != "" {
+		return t
+	}
 	dirs := []string{}
 	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
 		dirs = append(dirs, d)

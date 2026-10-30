@@ -198,6 +198,8 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.homeCursor = len(items) - 1
 	case "enter", "l", "right":
 		return m.activate(items[m.homeCursor])
+	case "A":
+		return m.openAccounts("")
 	case "D":
 		m.screen = screenDeploys
 		m.dpCursor, m.dpOffset = 0, 0

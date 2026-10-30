@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Arnav717/oryn/internal/app"
 	"github.com/Arnav717/oryn/internal/config"
 	"github.com/Arnav717/oryn/internal/deploy"
 )
@@ -15,7 +16,7 @@ func deploys(cfg *config.Config) {
 	defer cancel()
 	found := false
 	for _, p := range cfg.Projects {
-		links := deploy.Detect(p)
+		links := app.LinksFor(cfg, p)
 		if len(links) == 0 {
 			continue
 		}

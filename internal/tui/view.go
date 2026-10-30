@@ -47,6 +47,10 @@ func (m Model) View() string {
 		body = m.fullBox(helpLines())
 	case m.screen == screenHome:
 		body = m.fullBox(m.homeLines())
+	case m.screen == screenAccounts:
+		body = m.fullBox(m.acctLines())
+	case m.screen == screenPicker:
+		body = m.fullBox(m.pickLinesScrolled())
 	case m.screen == screenDeploys:
 		body = m.fullBox(m.deployBody())
 	case m.screen == screenChanges:
@@ -72,7 +76,11 @@ func (m Model) View() string {
 
 func (m Model) header() string {
 	left := sLogo.Render("ORYN")
-	if m.screen == screenDeploys {
+	if m.screen == screenAccounts {
+		left += " " + sDim.Render("›") + " " + sBold.Render("accounts")
+	} else if m.screen == screenPicker {
+		left += " " + sDim.Render("›") + " " + sBold.Render("link project")
+	} else if m.screen == screenDeploys {
 		left += " " + sDim.Render("›") + " " + sBold.Render("deploys") + "  " + m.deploySummary()
 	} else if m.screen == screenChanges {
 		left += " " + sDim.Render("›") + " " + sBold.Render("changes")
@@ -165,8 +173,21 @@ func (m Model) footer() string {
 	if m.cmdMode {
 		return clip(m.input.View()+m.suggestions(), m.w)
 	}
+	if m.screen == screenAccounts {
+		if m.tokenEntry {
+			return clip(m.tokenInput.View()+sDim.Render("   enter to verify · esc cancel"), m.w)
+		}
+		hints := sDim.Render("j/k move · enter paste token · b token page · x forget · esc back · q quit")
+		if m.flash == "" {
+			return clip(hints, m.w)
+		}
+		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
+	}
+	if m.screen == screenPicker {
+		return clip(sDim.Render("j/k move · enter link · esc back · q quit"), m.w)
+	}
 	if m.screen == screenDeploys {
-		hints := sDim.Render("j/k move · enter open deployment · esc home · r refresh · ? help · q quit")
+		hints := sDim.Render("j/k move · enter open/link · l link project · A accounts · esc home · r refresh · ? help · q quit")
 		if m.flash == "" {
 			return clip(hints, m.w)
 		}
@@ -475,6 +496,7 @@ func helpLines() []string {
 		row("enter", "open package (DES)"),
 		row("c (on home)", "changes since you last looked"),
 		row("D (on home)", "deployments"),
+		row("A (on home)", "connect Vercel / Netlify / Cloudflare accounts"),
 		row("r", "refresh now"),
 		row("q", "quit"),
 		"",

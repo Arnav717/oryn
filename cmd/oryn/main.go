@@ -17,6 +17,7 @@ import (
 
 	"github.com/Arnav717/oryn/internal/app"
 	"github.com/Arnav717/oryn/internal/config"
+	"github.com/Arnav717/oryn/internal/deploy"
 	"github.com/Arnav717/oryn/internal/source"
 	"github.com/Arnav717/oryn/internal/store"
 	"github.com/Arnav717/oryn/internal/tui"
@@ -68,6 +69,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	deploy.SetCredsDir(filepath.Dir(*cfgPath))
 
 	switch cmd {
 	case "add", "a":

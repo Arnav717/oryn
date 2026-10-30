@@ -33,7 +33,7 @@ func (t DeployTarget) Latest(target string) (deploy.Deployment, bool) {
 func fetchDeploys(ctx context.Context, cfg *config.Config, snap *Snapshot) {
 	var targets []DeployTarget
 	for _, p := range cfg.Projects {
-		for _, l := range deploy.Detect(p) {
+		for _, l := range LinksFor(cfg, p) {
 			prov := deploy.ProviderFor(l.Platform)
 			targets = append(targets, DeployTarget{Link: l, Queryable: prov != nil && l.Linked()})
 		}
@@ -78,4 +78,32 @@ func recordDeployEvents(snap *Snapshot, record func(store.Event) error) error {
 		}
 	}
 	return nil
+}
+
+// LinksFor returns a project's deployment targets: detected from files, with
+// links picked in the UI overlaid.
+func LinksFor(cfg *config.Config, project string) []deploy.Link {
+	return withConfigLinks(deploy.Detect(project), cfg, project)
+}
+
+// withConfigLinks overlays links picked in the UI onto what files revealed.
+// A UI link wins over a detected one for the same platform; a UI link for a
+// platform with no config file in the project still counts.
+func withConfigLinks(found []deploy.Link, cfg *config.Config, project string) []deploy.Link {
+	for _, cl := range cfg.DeployLinks {
+		if cl.Project != project {
+			continue
+		}
+		l := deploy.Link{Platform: cl.Platform, Project: project, Ref: cl.Ref, Team: cl.Team, Marker: "oryn config"}
+		replaced := false
+		for i := range found {
+			if found[i].Platform == cl.Platform {
+				found[i], replaced = l, true
+			}
+		}
+		if !replaced {
+			found = append(found, l)
+		}
+	}
+	return found
 }

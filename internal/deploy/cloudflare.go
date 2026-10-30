@@ -19,7 +19,7 @@ func NewCloudflare() *Cloudflare { return &Cloudflare{base: "https://api.cloudfl
 func (*Cloudflare) Name() string { return "cloudflare" }
 
 func (c *Cloudflare) List(ctx context.Context, l Link, limit int) ([]Deployment, error) {
-	tok, acc := os.Getenv("CLOUDFLARE_API_TOKEN"), os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	tok, acc := cloudflareCreds()
 	if tok == "" || acc == "" {
 		return nil, ErrNoCredentials
 	}
@@ -80,4 +80,16 @@ func cloudflareState(stage, status string) string {
 		}
 	}
 	return StateBuilding
+}
+
+// cloudflareCreds returns the API token and account id, env first.
+func cloudflareCreds() (token, account string) {
+	token, account = os.Getenv("CLOUDFLARE_API_TOKEN"), os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	if token == "" {
+		token = stored("cloudflare_token")
+	}
+	if account == "" {
+		account = stored("cloudflare_account")
+	}
+	return token, account
 }

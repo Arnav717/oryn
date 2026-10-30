@@ -23,6 +23,9 @@ func netlifyToken() string {
 	if t := os.Getenv("NETLIFY_AUTH_TOKEN"); t != "" {
 		return t
 	}
+	if t := stored("netlify_token"); t != "" {
+		return t
+	}
 	dirs := []string{}
 	if d := os.Getenv("XDG_CONFIG_HOME"); d != "" {
 		dirs = append(dirs, d)

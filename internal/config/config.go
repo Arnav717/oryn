@@ -18,6 +18,14 @@ type Service struct {
 	Via  string `toml:"-"`   // package that pulled this service in (stack-detected only)
 }
 
+// DeployLink binds a project to a platform's project/site/app.
+type DeployLink struct {
+	Project  string `toml:"project"`
+	Platform string `toml:"platform"`
+	Ref      string `toml:"ref"`
+	Team     string `toml:"team,omitempty"`
+}
+
 type Config struct {
 	Projects []string  `toml:"projects"`
 	Services []Service `toml:"service"`
@@ -29,6 +37,10 @@ type Config struct {
 	// Repos overrides the GitHub repo detected from a project's git remote:
 	// [repos] "~/code/app" = "owner/name".
 	Repos map[string]string `toml:"repos"`
+
+	// DeployLinks bind a project folder to a hosting target picked in the UI,
+	// so linking never writes into the project itself.
+	DeployLinks []DeployLink `toml:"deploy_link"`
 
 	RefreshEvery   time.Duration `toml:"-"`
 	Path           string        `toml:"-"`
@@ -90,7 +102,22 @@ func Load(path string) (*Config, error) {
 		}
 		c.Repos = expanded
 	}
+	for i, l := range c.DeployLinks {
+		c.DeployLinks[i].Project = ExpandHome(l.Project)
+	}
 	return c, nil
+}
+
+// SetDeployLink binds project to a platform target, replacing any earlier
+// link for the same platform.
+func (c *Config) SetDeployLink(project, platform, ref, team string) {
+	for i, l := range c.DeployLinks {
+		if l.Project == project && l.Platform == platform {
+			c.DeployLinks[i] = DeployLink{project, platform, ref, team}
+			return
+		}
+	}
+	c.DeployLinks = append(c.DeployLinks, DeployLink{project, platform, ref, team})
 }
 
 // GitHubEnabled reports whether the GitHub integration is switched on.
@@ -108,6 +135,7 @@ func (c *Config) Save() error {
 		StackStatus *bool             `toml:"stack_status,omitempty"`
 		Services    []Service         `toml:"service,omitempty"`
 		Repos       map[string]string `toml:"repos,omitempty"`
+		Links       []DeployLink      `toml:"deploy_link,omitempty"`
 	}{Refresh: c.Refresh, GitHub: c.GitHub, StackStatus: c.StackStatus}
 	if len(c.Repos) > 0 {
 		out.Repos = map[string]string{}
@@ -117,6 +145,10 @@ func (c *Config) Save() error {
 	}
 	for _, p := range c.Projects {
 		out.Projects = append(out.Projects, ShortHome(p))
+	}
+	for _, l := range c.DeployLinks {
+		l.Project = ShortHome(l.Project)
+		out.Links = append(out.Links, l)
 	}
 	if c.customServices {
 		out.Services = c.Services

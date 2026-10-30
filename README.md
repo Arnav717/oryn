@@ -114,7 +114,7 @@ Run it at login with the systemd unit in `contrib/oryn.service`.
 | Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
 | Upstream  | statuspage `/api/v2/status.json` endpoints: your configured services plus vendors detected in your lockfiles (Sentry, Twilio, MongoDB, ...). Turn the detected ones off with `stack_status = false` |
 | GitHub    | GraphQL + REST API: review requests, your PRs, and per-repo PRs, issues, Actions, commits, people, releases, Dependabot alerts |
-| Deploys   | Vercel, Netlify and Cloudflare Pages: detected from `vercel.json`, `.vercel/`, `netlify.toml`, `wrangler.*`; read with `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` / `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` or the platform CLI login. Failed deploys land on the tape |
+| Deploys   | Vercel, Netlify and Cloudflare Pages: detected from `vercel.json`, `.vercel/`, `netlify.toml`, `wrangler.*`; connect an account in the TUI (`A` on the home screen: paste a token, oryn verifies it before saving), or use `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` / `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, or the platform CLI login. Pick a project for a folder with enter on the deploys screen (`D`); links are kept in your oryn config, never written into the project. Failed deploys land on the tape |
 | Tape      | every new vuln, release and status change, stored in SQLite |
 
 Direct vs. transitive comes from the lockfile where it records it (npm, pnpm,

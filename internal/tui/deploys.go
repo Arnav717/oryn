@@ -34,14 +34,25 @@ func ago(t time.Time, now time.Time) string {
 	return shortAgo(now.Sub(t)) + " ago"
 }
 
+// actionHint says what pressing enter will do on a note row.
+func actionHint(t app.DeployTarget) string {
+	switch {
+	case errors.Is(t.Err, deploy.ErrNoCredentials), t.Err == nil && deploy.Source(t.Link.Platform) == "" && deploy.ConnectorFor(t.Link.Platform) != nil && !t.Queryable:
+		return "  [enter: connect account]"
+	case !t.Queryable && deploy.ConnectorFor(t.Link.Platform) != nil:
+		return "  [enter: pick project]"
+	}
+	return ""
+}
+
 func targetNote(t app.DeployTarget) string {
 	switch {
 	case !t.Queryable && deploy.ProviderFor(t.Link.Platform) != nil:
-		return "detected via " + t.Link.Marker + ", not linked: run `" + t.Link.Platform + " link`"
+		return "detected via " + t.Link.Marker + ", not linked to a " + t.Link.Platform + " project"
 	case !t.Queryable:
 		return "detected via " + t.Link.Marker + " (not queryable yet)"
 	case errors.Is(t.Err, deploy.ErrNoCredentials):
-		return "no credentials: log in with the " + t.Link.Platform + " CLI or set its token"
+		return "no " + t.Link.Platform + " account connected"
 	case t.Err != nil:
 		return "error: " + t.Err.Error()
 	}
@@ -76,8 +87,10 @@ func (m Model) deployLines() []string {
 }
 
 type deployRow struct {
-	line string
-	url  string
+	line   string
+	url    string
+	target int  // index into snap.Deploys
+	note   bool // a status note (not linked, no credentials) rather than a deployment
 }
 
 // deployRows flattens every target into a header plus one row per deployment.
@@ -88,10 +101,12 @@ func (m Model) deployRows() (lines []string, rows []deployRow, rowLine []int) {
 	if len(m.snap.Deploys) == 0 {
 		return []string{sDim.Render("  No Vercel, Netlify or Cloudflare Pages config found in watched projects.")}, nil, nil
 	}
-	for _, t := range m.snap.Deploys {
+	for ti, t := range m.snap.Deploys {
 		lines = append(lines, "", sBold.Render(filepath.Base(t.Link.Project))+" "+sDim.Render(t.Link.Platform+" "+t.Link.Ref))
 		if note := targetNote(t); note != "" {
-			lines = append(lines, "  "+sDim.Render(note))
+			rowLine = append(rowLine, len(lines))
+			rows = append(rows, deployRow{line: note, target: ti, note: true})
+			lines = append(lines, "  "+sDim.Render(note+actionHint(t)))
 			continue
 		}
 		for _, d := range t.Deployments {
@@ -99,7 +114,7 @@ func (m Model) deployRows() (lines []string, rows []deployRow, rowLine []int) {
 			l := deployDot(d.State) + " " + pad(d.State, 9) + pad(d.Target, 11) + pad(d.Branch, 14) + pad(d.Commit, 9) +
 				sDim.Render(pad(ago(d.Created, m.now), 10)) + msg
 			rowLine = append(rowLine, len(lines))
-			rows = append(rows, deployRow{l, d.URL})
+			rows = append(rows, deployRow{line: l, url: d.URL, target: ti})
 			lines = append(lines, "  "+l)
 		}
 	}
@@ -150,9 +165,23 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.dpCursor = 0
 	case "G", "end":
 		m.dpCursor = 1 << 30
-	case "enter", "o", "l", "right":
-		if _, rows, _ := m.deployRows(); m.dpCursor >= 0 && m.dpCursor < len(rows) && rows[m.dpCursor].url != "" {
-			if err := browser.Open(rows[m.dpCursor].url); err != nil {
+	case "A":
+		return m.openAccounts("")
+	case "l":
+		if t, ok := m.deployTargetAtCursor(); ok {
+			return m.linkTarget(t)
+		}
+	case "enter", "o", "right":
+		_, rows, _ := m.deployRows()
+		if m.dpCursor < 0 || m.dpCursor >= len(rows) {
+			break
+		}
+		r := rows[m.dpCursor]
+		if r.note {
+			return m.linkTarget(m.snap.Deploys[r.target])
+		}
+		if r.url != "" {
+			if err := browser.Open(r.url); err != nil {
 				m.flash = err.Error()
 			} else {
 				m.flash = "opened deployment"
@@ -181,4 +210,23 @@ func (m Model) deploySummary() string {
 		s += " · " + sBad.Render(fmt.Sprintf("%d failing", failing))
 	}
 	return s
+}
+
+func (m Model) deployTargetAtCursor() (app.DeployTarget, bool) {
+	_, rows, _ := m.deployRows()
+	if m.dpCursor < 0 || m.dpCursor >= len(rows) {
+		return app.DeployTarget{}, false
+	}
+	return m.snap.Deploys[rows[m.dpCursor].target], true
+}
+
+// pickLinesScrolled keeps the picker cursor in view for long project lists.
+func (m Model) pickLinesScrolled() []string {
+	lines := m.pickLines()
+	vis := max(1, m.h-m.chrome()-2)
+	cur := m.pickCursor + 2
+	if cur >= vis && !m.pickLoading && m.pickErr == nil {
+		lines = append(lines[:2:2], lines[min(len(lines), cur-vis+3):]...)
+	}
+	return lines
 }

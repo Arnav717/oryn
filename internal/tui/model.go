@@ -17,6 +17,7 @@ import (
 
 	"github.com/Arnav717/oryn/internal/app"
 	"github.com/Arnav717/oryn/internal/config"
+	"github.com/Arnav717/oryn/internal/deploy"
 	"github.com/Arnav717/oryn/internal/source"
 	"github.com/Arnav717/oryn/internal/store"
 )
@@ -67,11 +68,14 @@ const (
 	screenProject
 	screenChanges
 	screenDeploys
+	screenAccounts
+	screenPicker
 	screenGitHub
 )
 
 type snapMsg struct{ snap *app.Snapshot }
 type clockMsg time.Time
+
 type autoRefreshMsg struct{}
 
 type Model struct {
@@ -93,6 +97,16 @@ type Model struct {
 	chCursor, chOffset int // changes screen
 	chExpand           bool
 	dpCursor, dpOffset int // deploys screen
+
+	acctCursor int // accounts screen
+	tokenEntry bool
+	tokenInput textinput.Model
+
+	pickTarget  app.DeployTarget // link picker
+	pickItems   []deploy.ProjectRef
+	pickErr     error
+	pickCursor  int
+	pickLoading bool
 
 	ghCursor int
 	ghOffset int
@@ -217,6 +231,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case connectMsg:
+		if msg.err != nil {
+			m.flash = msg.err.Error()
+			return m, nil
+		}
+		m.flash = "connected " + msg.platform + " as " + msg.who
+		return m, m.startRefresh()
+
+	case projectsMsg:
+		if m.screen == screenPicker && msg.platform == m.pickTarget.Link.Platform {
+			m.pickLoading, m.pickItems, m.pickErr = false, msg.items, msg.err
+		}
+		return m, nil
+
 	case clockMsg:
 		m.now = time.Time(msg)
 		return m, clock()
@@ -276,6 +304,10 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleChangesKey(k)
 	case screenDeploys:
 		return m.handleDeployKey(k)
+	case screenAccounts:
+		return m.handleAccountsKey(k)
+	case screenPicker:
+		return m.handlePickerKey(k)
 	}
 
 	if m.screen == screenProject && m.tab == tabGitHub {
