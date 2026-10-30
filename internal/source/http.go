@@ -57,8 +57,10 @@ func doJSONH(ctx context.Context, method, url string, headers map[string]string,
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		// The API's own words are what's worth showing; a long URL in front
+		// of them pushes the reason off the screen.
 		if msg := apiMessage(resp.Body); msg != "" {
-			return fmt.Errorf("%s %s: %s: %s", method, url, resp.Status, msg)
+			return fmt.Errorf("%s: %s", resp.Status, msg)
 		}
 		return fmt.Errorf("%s %s: %s", method, url, resp.Status)
 	}

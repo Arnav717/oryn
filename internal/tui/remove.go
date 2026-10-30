@@ -50,6 +50,11 @@ func (m Model) askDeleteDeployment() (tea.Model, tea.Cmd) {
 		m.flash = "deleting is not supported on " + t.Link.Platform
 		return m, nil
 	}
+	// Cloudflare always refuses this one, so don't ask only to fail.
+	if t.Link.Platform == "cloudflare" && t.IsLive(*r.dep) {
+		m.flash = "Cloudflare won't delete the live production deployment. Deploy a newer one first, or press X to delete the whole project"
+		return m, nil
+	}
 	m.delAsk = &deleteAsk{target: t, dep: *r.dep}
 	return m, nil
 }

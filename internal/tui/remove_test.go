@@ -116,3 +116,34 @@ func TestUnlinkOnlyForgetsLocally(t *testing.T) {
 		t.Errorf("flash = %q", next.(Model).flash)
 	}
 }
+
+func TestCloudflareLiveDeploymentExplainsItself(t *testing.T) {
+	live := deploy.Deployment{ID: "live", Target: "production", State: deploy.StateReady}
+	failed := deploy.Deployment{ID: "new", Target: "production", State: deploy.StateError}
+	old := deploy.Deployment{ID: "old", Target: "production", State: deploy.StateReady}
+	preview := deploy.Deployment{ID: "pre", Target: "preview", State: deploy.StateReady}
+	tgt := app.DeployTarget{Link: deploy.Link{Platform: "cloudflare", Project: "/p", Ref: "site"}, Queryable: true,
+		Deployments: []deploy.Deployment{failed, preview, live, old}}
+	m := Model{snap: &app.Snapshot{Deploys: []app.DeployTarget{tgt}}, screen: screenDeploys, w: 200, h: 40}
+
+	for i, d := range tgt.Deployments {
+		m.dpCursor = i
+		next, _ := m.askDeleteDeployment()
+		got := next.(Model)
+		if d.ID == "live" {
+			if got.delAsk != nil || !strings.Contains(got.flash, "press X") {
+				t.Errorf("live: ask %+v flash %q", got.delAsk, got.flash)
+			}
+		} else if got.delAsk == nil {
+			t.Errorf("%s should be deletable: flash %q", d.ID, got.flash)
+		}
+	}
+
+	// Vercel has no such rule.
+	tgt.Link.Platform = "vercel"
+	m.snap.Deploys[0] = tgt
+	m.dpCursor = 2
+	if next, _ := m.askDeleteDeployment(); next.(Model).delAsk == nil {
+		t.Error("vercel live deployment should still ask")
+	}
+}

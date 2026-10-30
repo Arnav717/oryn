@@ -65,7 +65,10 @@ func (c *Cloudflare) DeleteDeployment(ctx context.Context, l Link, id string) er
 	if tok == "" || acc == "" {
 		return ErrNoCredentials
 	}
-	u := c.base + "/client/v4/accounts/" + url.PathEscape(acc) + "/pages/projects/" + url.PathEscape(l.Ref) + "/deployments/" + url.PathEscape(id)
+	// Cloudflare refuses a deployment with a branch alias unless forced. The
+	// delete is already confirmed, and force doesn't cover the active production
+	// deployment, which it always refuses.
+	u := c.base + "/client/v4/accounts/" + url.PathEscape(acc) + "/pages/projects/" + url.PathEscape(l.Ref) + "/deployments/" + url.PathEscape(id) + "?force=true"
 	return source.DoJSONH(ctx, "DELETE", u, bearer(tok), nil, nil)
 }
 

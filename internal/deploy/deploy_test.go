@@ -454,7 +454,7 @@ func TestRemove(t *testing.T) {
 		"DELETE /api/v1/deploys/d1",
 		"DELETE /api/v1/sites/site",
 		"DELETE /client/v4/accounts/acc1/pages/projects/web",
-		"DELETE /client/v4/accounts/acc1/pages/projects/web/deployments/d1",
+		"DELETE /client/v4/accounts/acc1/pages/projects/web/deployments/d1?force=true",
 	}
 	if got := strings.Join(seen, "\n"); len(seen) != len(want) {
 		t.Errorf("requests:\n%s", got)
@@ -553,5 +553,34 @@ func TestCloudflareLiveURL(t *testing.T) {
 		if got, err := c.LiveURL(context.Background(), l); err != nil || got != tc.want {
 			t.Errorf("%s %d: got %q, %v, want %q", tc.domains, tc.status, got, err, tc.want)
 		}
+	}
+}
+
+func TestCloudflareDeleteForcesAliases(t *testing.T) {
+	t.Setenv("CLOUDFLARE_API_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acc")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "DELETE" || r.URL.Query().Get("force") != "true" {
+			w.WriteHeader(400)
+			fmt.Fprint(w, `{"errors":[{"message":"You cannot delete an aliased deployment without a force parameter."}]}`)
+		}
+	}))
+	defer srv.Close()
+	if err := (&Cloudflare{base: srv.URL}).DeleteDeployment(context.Background(), Link{Ref: "site"}, "d1"); err != nil {
+		t.Errorf("delete: %v", err)
+	}
+}
+
+func TestAPIErrorsLeadWithTheReason(t *testing.T) {
+	t.Setenv("CLOUDFLARE_API_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acc")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(400)
+		fmt.Fprint(w, `{"errors":[{"message":"You cannot delete the active production deployment."}]}`)
+	}))
+	defer srv.Close()
+	err := (&Cloudflare{base: srv.URL}).DeleteDeployment(context.Background(), Link{Ref: "site"}, "d1")
+	if err == nil || strings.Contains(err.Error(), "http") || !strings.Contains(err.Error(), "active production") {
+		t.Errorf("err: %v", err)
 	}
 }

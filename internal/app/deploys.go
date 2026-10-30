@@ -31,6 +31,17 @@ func (t DeployTarget) Latest(target string) (deploy.Deployment, bool) {
 	return deploy.Deployment{}, false
 }
 
+// IsLive reports whether d is what production serves: the newest production
+// deployment that succeeded.
+func (t DeployTarget) IsLive(d deploy.Deployment) bool {
+	for _, x := range t.Deployments {
+		if x.Target == "production" && x.State == deploy.StateReady {
+			return x.ID == d.ID
+		}
+	}
+	return false
+}
+
 func fetchDeploys(ctx context.Context, cfg *config.Config, snap *Snapshot) {
 	var targets []DeployTarget
 	for _, p := range cfg.Projects {
