@@ -69,6 +69,8 @@ func (m Model) body() string {
 		return m.fullBox(m.spawnLines())
 	case m.finder != nil:
 		return m.fullBox(m.finderLines())
+	case m.logv != nil:
+		return m.fullBox(m.logLines())
 	case m.review != nil:
 		return m.fullBox(m.reviewLines())
 	case m.showHelp:
@@ -176,6 +178,9 @@ func (m Model) footer() string {
 	}
 	if m.discard != nil {
 		return clip(" "+sBad.Render("delete this worktree and its local branch? Type "+m.discard.run.Slug+": ")+m.discard.input.View(), m.w)
+	}
+	if m.logv != nil {
+		return m.statusLine("j/k scroll · g/G top/end · esc back")
 	}
 	if m.shipAsk != nil {
 		return clip(" "+sWarn.Render("push "+m.shipAsk.Branch+" and open a PR on GitHub?  y to confirm, any other key cancels"), m.w)
@@ -285,6 +290,10 @@ func (m Model) projectHints() string {
 	case tabDeploys:
 		return "enter open · p deploy · [ ] jump · ctrl+p commands"
 	case tabGitHub:
+		switch m.rsub {
+		case svActions:
+			return "L log · enter open · h/l section"
+		}
 		return "h/l section · enter open · [ ] jump · ctrl+p commands"
 	case tabActivity:
 		return "f filter · enter open · [ ] tabs · ctrl+p commands"
@@ -590,6 +599,7 @@ func helpLines() []string {
 		row("[  ]", "inside a project: jump to the previous / next window"),
 		row("h/l", "GitHub tab: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
 		row("enter / o", "GitHub tab: open the selected row / the repo in your browser"),
+		row("L", "GitHub Actions: read a run's log"),
 		row("p  D  g", "project windows: deploy · Deploys · GitHub"),
 		"",
 		sBold.Render("Deploys"),

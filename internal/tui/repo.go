@@ -412,6 +412,8 @@ func (m Model) handleRepoKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.switchTab(-1)
 	case "D":
 		m.setTab(tabDeploys)
+	case "L":
+		return m.openRunLog(d)
 	case "l", "right", "tab":
 		m.rsub = (m.rsub + 1) % numSubs
 	case "h", "left", "shift+tab":

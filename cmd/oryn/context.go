@@ -65,6 +65,15 @@ func contextCmd(cfg *config.Config, st *store.Store, args []string, asJSON bool)
 	fmt.Printf("git       %s, %d uncommitted\n", orDash(b.Git.Branch), b.Git.Uncommitted)
 	if g := b.GitHub; g != nil {
 		fmt.Printf("github    %s, ci %s, %d PRs, %d issues\n", g.Repo, orDash(g.CI), g.OpenPRs, g.OpenIssues)
+		if f := g.Failure; f != nil {
+			var at []string
+			for _, s := range []string{f.Workflow, f.Job, f.Step} {
+				if s != "" {
+					at = append(at, s)
+				}
+			}
+			fmt.Printf("ci failed %s: %s\n", strings.Join(at, " > "), f.LogCommand)
+		}
 	}
 	for _, d := range b.Deploys {
 		fmt.Printf("deploy    %s %s %s\n", d.Platform, orDash(d.State), d.URL)
@@ -143,7 +152,7 @@ func mcpTools(cfg *config.Config, st *store.Store) []mcp.Tool {
 	return []mcp.Tool{
 		{
 			Name:        "project_context",
-			Description: "Everything needed to start working in a project: stack, commands to run, top-level layout, git state, CI, deploys, other active agents and claimed files. Call this first instead of exploring.",
+			Description: "Everything needed to start working in a project: stack, commands to run, top-level layout, git state, CI with where it failed, deploys, other active agents and claimed files. Call this first instead of exploring.",
 			Schema:      object(map[string]any{"path": pathProp}),
 			Run: func(raw json.RawMessage) (any, error) {
 				a, err := input(raw)

@@ -139,6 +139,8 @@ type Model struct {
 	discard  *discardAsk
 	stopAsk  *agents.Run // a stop waiting for y/n
 
+	logv *logView
+
 	hidden map[string]time.Time // Needs you items set aside, until when
 
 	win    homeWin // focused window on Home
@@ -362,6 +364,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spin, cmd = m.spin.Update(msg)
 		return m, cmd
 
+	case logMsg:
+		return m.onLog(msg)
+
+	case logTickMsg:
+		if msg.view == m.logv {
+			return m, fetchLog(msg.view)
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 
@@ -414,6 +425,9 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.shipAsk != nil {
 		return m.handleShipConfirm(k)
+	}
+	if m.logv != nil {
+		return m.handleLogKey(k)
 	}
 	if m.review != nil {
 		return m.handleReviewKey(k)

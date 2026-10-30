@@ -1,11 +1,13 @@
 // Package brief builds a compact picture of a project for AI agents, so they
 // can start working without exploring. It reads local files and oryn's last
 // refresh, never the network, and carries no text written by outsiders such as
-// PR titles or logs: counts and states only.
+// PR titles or logs: counts, states, and names from files committed to the
+// project itself, the same as its script names.
 package brief
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/Arnav717/oryn/internal/agents"
 	"github.com/Arnav717/oryn/internal/app"
@@ -39,11 +42,22 @@ type Agent struct {
 }
 
 type GitHub struct {
-	Repo          string `json:"repo"`
-	DefaultBranch string `json:"default_branch,omitempty"`
-	CI            string `json:"ci,omitempty"`
-	OpenPRs       int    `json:"open_prs"`
-	OpenIssues    int    `json:"open_issues"`
+	Repo          string     `json:"repo"`
+	DefaultBranch string     `json:"default_branch,omitempty"`
+	CI            string     `json:"ci,omitempty"`
+	OpenPRs       int        `json:"open_prs"`
+	OpenIssues    int        `json:"open_issues"`
+	Failure       *CIFailure `json:"ci_failure,omitempty"`
+}
+
+// CIFailure says where CI broke on the default branch head and how to read the
+// log. The log itself stays out: an agent should go to it knowingly, as data.
+type CIFailure struct {
+	Workflow   string `json:"workflow,omitempty"`
+	Job        string `json:"job,omitempty"`
+	Step       string `json:"step,omitempty"`
+	RunID      int64  `json:"run_id"`
+	LogCommand string `json:"log_command"`
 }
 
 type Git struct {
@@ -107,6 +121,12 @@ func For(project string, snap *app.Snapshot, sessions []agents.Session, st *stor
 			if d := snap.Repos[project]; d != nil {
 				b.GitHub.DefaultBranch, b.GitHub.CI = d.DefaultBranch, d.DefaultCI
 				b.GitHub.OpenPRs, b.GitHub.OpenIssues = d.OpenPRs, d.OpenIssues
+				if f := d.Failure; f != nil {
+					b.GitHub.Failure = &CIFailure{
+						Workflow: safeName(f.Workflow), Job: safeName(f.Job), Step: safeName(f.Step), RunID: f.RunID,
+						LogCommand: fmt.Sprintf("gh run view %d --repo %s --log-failed", f.RunID, ref),
+					}
+				}
 			}
 		}
 		for _, t := range snap.Deploys {
@@ -141,6 +161,21 @@ func For(project string, snap *app.Snapshot, sessions []agents.Session, st *stor
 		b.Claims, _ = st.Claims(project, now)
 	}
 	return b
+}
+
+// safeName keeps a workflow name to what names are made of, so one built from
+// an expression can't carry a line break or a paragraph into an agent's context.
+func safeName(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune(" ._:/()+-", r) {
+			return r
+		}
+		return -1
+	}, s)
+	if r := []rune(s); len(r) > 80 {
+		s = string(r[:80])
+	}
+	return strings.TrimSpace(s)
 }
 
 func gitOut(dir string, args ...string) string {

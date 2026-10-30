@@ -12,6 +12,9 @@ import (
 
 const githubGraphQL = "https://api.github.com/graphql"
 
+// githubAPI is a variable so tests can point it at a local server.
+var githubAPI = "https://api.github.com"
+
 // ErrNoToken means no GitHub credentials were found; callers treat it as
 // "not connected" rather than a failure.
 var ErrNoToken = errors.New("no GitHub token (set GH_TOKEN or run `gh auth login`)")

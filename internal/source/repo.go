@@ -33,6 +33,8 @@ type Commit struct {
 
 // Run is one GitHub Actions workflow run.
 type Run struct {
+	ID         int64
+	HeadSHA    string
 	Number     int
 	Workflow   string
 	Title      string
@@ -66,6 +68,15 @@ type Alert struct {
 	ID, Package, Ecosystem, Severity, Summary, Manifest, URL string
 }
 
+// CIFailure is where CI failed on the default branch head. The names come from
+// workflow files committed to that branch, never from a pull request's run.
+type CIFailure struct {
+	RunID    int64
+	Workflow string
+	Job      string
+	Step     string
+}
+
 // RepoData is everything oryn shows on a project's GitHub tab.
 type RepoData struct {
 	Ref           gitrepo.Ref
@@ -80,6 +91,8 @@ type RepoData struct {
 	License       string
 	DefaultBranch string
 	DefaultCI     string // checks state of the default branch head
+	HeadSHA       string // the default branch head
+	Failure       *CIFailure
 
 	OpenPRs     int // total, PRs holds the most recent
 	PRs         []PR
@@ -240,6 +253,7 @@ func convertRepo(ref gitrepo.Ref, r repoResp) (*RepoData, error) {
 	}
 	if b := g.DefaultBranchRef; b != nil {
 		d.DefaultBranch = b.Name
+		d.HeadSHA = b.Target.OID
 		if b.Target.StatusCheckRollup != nil {
 			d.DefaultCI = b.Target.StatusCheckRollup.State
 		}
@@ -302,6 +316,8 @@ func convertRepo(ref gitrepo.Ref, r repoResp) (*RepoData, error) {
 
 type runsResp struct {
 	WorkflowRuns []struct {
+		ID           int64     `json:"id"`
+		HeadSHA      string    `json:"head_sha"`
 		RunNumber    int       `json:"run_number"`
 		Name         string    `json:"name"`
 		DisplayTitle string    `json:"display_title"`
@@ -321,6 +337,7 @@ func (r runsResp) runs() []Run {
 	out := make([]Run, 0, len(r.WorkflowRuns))
 	for _, w := range r.WorkflowRuns {
 		run := Run{
+			ID: w.ID, HeadSHA: w.HeadSHA,
 			Number: w.RunNumber, Workflow: w.Name, Title: w.DisplayTitle, Branch: w.HeadBranch,
 			Event: w.Event, Status: w.Status, Conclusion: w.Conclusion, URL: w.HTMLURL, Created: w.CreatedAt,
 		}
@@ -390,7 +407,7 @@ func fetchRepo(ctx context.Context, token string, ref gitrepo.Ref) (*RepoData, e
 		contrib []contributor
 	)
 	h := authHeaders(token)
-	base := fmt.Sprintf("https://api.github.com/repos/%s/%s", ref.Owner, ref.Name)
+	base := repoAPI(ref)
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
@@ -415,6 +432,7 @@ func fetchRepo(ctx context.Context, token string, ref gitrepo.Ref) (*RepoData, e
 	}
 	d.Runs = runs.runs()
 	d.People = mergePeople(d.People, contrib)
+	d.Failure = findFailure(ctx, h, base, d)
 	return d, nil
 }
 

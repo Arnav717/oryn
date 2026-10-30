@@ -150,7 +150,7 @@ func (m *Model) openSection(id sectionID) {
 // navFree reports whether number keys may switch tabs: not while typing, and
 // not out of a flow that has to finish first.
 func (m Model) navFree() bool {
-	return !m.adding && !m.confirmRm && !m.tokenEntry && m.spawn == nil && m.finder == nil && m.review == nil && m.discard == nil && m.shipAsk == nil && m.screen != screenPicker && m.screen != screenDeployRun
+	return !m.adding && !m.confirmRm && !m.tokenEntry && m.spawn == nil && m.finder == nil && m.review == nil && m.discard == nil && m.shipAsk == nil && m.logv == nil && m.screen != screenPicker && m.screen != screenDeployRun
 }
 
 // sectionKey maps a number key to its tab.
