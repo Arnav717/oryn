@@ -56,6 +56,12 @@ func contextCmd(cfg *config.Config, st *store.Store, args []string, asJSON bool)
 	for _, k := range keys {
 		fmt.Printf("%-9s %s\n", k, b.Commands[k])
 	}
+	if len(b.Scripts) > 0 {
+		fmt.Println("scripts  ", strings.Join(b.Scripts, ", "))
+	}
+	if len(b.Guides) > 0 {
+		fmt.Println("guides   ", strings.Join(b.Guides, ", "))
+	}
 	fmt.Printf("git       %s, %d uncommitted\n", orDash(b.Git.Branch), b.Git.Uncommitted)
 	if g := b.GitHub; g != nil {
 		fmt.Printf("github    %s, ci %s, %d PRs, %d issues\n", g.Repo, orDash(g.CI), g.OpenPRs, g.OpenIssues)
@@ -161,7 +167,7 @@ func mcpTools(cfg *config.Config, st *store.Store) []mcp.Tool {
 		},
 		{
 			Name:        "list_agents",
-			Description: "AI agents waiting or running in watched projects, with their tasks and branches. Use it to avoid duplicating work.",
+			Description: "AI agents waiting or running in watched projects, with their tasks and branches. Use it to avoid duplicating work. The list can include you.",
 			Schema:      object(map[string]any{}),
 			Run: func(json.RawMessage) (any, error) {
 				type row struct {

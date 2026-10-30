@@ -33,6 +33,9 @@ type Agent struct {
 	Task    string    `json:"task,omitempty"`
 	Branch  string    `json:"branch,omitempty"`
 	Updated time.Time `json:"updated"`
+	// SameFolder marks one running exactly where the caller is, which may be
+	// the caller itself: sessions don't identify themselves.
+	SameFolder bool `json:"same_folder,omitempty"`
 }
 
 type GitHub struct {
@@ -54,6 +57,8 @@ type Project struct {
 	Path     string            `json:"path"`
 	Stack    []string          `json:"stack,omitempty"`
 	Commands map[string]string `json:"commands,omitempty"`
+	Scripts  []string          `json:"other_scripts,omitempty"`
+	Guides   []string          `json:"guides,omitempty"`
 	Layout   []string          `json:"layout,omitempty"`
 	Git      Git               `json:"git"`
 	GitHub   *GitHub           `json:"github,omitempty"`
@@ -90,6 +95,8 @@ func Resolve(cfg *config.Config, dir string) string {
 func For(project string, snap *app.Snapshot, sessions []agents.Session, st *store.Store, self string, now time.Time) Project {
 	b := Project{Name: filepath.Base(project), Path: project}
 	b.Stack, b.Commands = detectStack(project)
+	b.Scripts = otherScripts(project, b.Commands)
+	b.Guides = guides(project)
 	b.Layout = layout(project)
 	b.Git = gitState(self)
 
@@ -118,13 +125,13 @@ func For(project string, snap *app.Snapshot, sessions []agents.Session, st *stor
 	}
 
 	for _, s := range sessions {
-		if !s.Active() || s.Dir == self {
+		if !s.Active() {
 			continue
 		}
 		if s.Project != project && s.Dir != project && !strings.HasPrefix(s.Dir, project+string(filepath.Separator)) {
 			continue
 		}
-		a := Agent{Tool: s.Tool, State: s.State.String(), Task: s.Title, Updated: s.Updated}
+		a := Agent{Tool: s.Tool, State: s.State.String(), Task: s.Title, Updated: s.Updated, SameFolder: s.Dir == self}
 		if s.Run != nil {
 			a.Branch = s.Run.Branch
 		}
@@ -230,6 +237,37 @@ func detectStack(dir string) ([]string, map[string]string) {
 	}
 	slices.Sort(stack)
 	return stack, cmds
+}
+
+// otherScripts names package.json scripts beyond the usual ones. Projects hide
+// required steps here, such as a code generator to run before building.
+func otherScripts(dir string, known map[string]string) []string {
+	var pkg struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil || json.Unmarshal(b, &pkg) != nil {
+		return nil
+	}
+	var out []string
+	for name := range pkg.Scripts {
+		if _, ok := known[name]; !ok {
+			out = append(out, name)
+		}
+	}
+	slices.Sort(out)
+	return out[:min(30, len(out))]
+}
+
+// guides are the files where a project explains itself to agents and people.
+func guides(dir string) []string {
+	var out []string
+	for _, name := range []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md", "CONTRIBUTING.md", "README.md"} {
+		if exists(dir, name) {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 var makeTarget = regexp.MustCompile(`(?m)^([a-zA-Z][a-zA-Z0-9_-]*):`)

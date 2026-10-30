@@ -79,7 +79,7 @@ func handle(req request, version string, tools []Tool) (any, *rpcError) {
 			"protocolVersion": v,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "oryn", "version": version},
-			"instructions":    "Call project_context first in a project: it gives the stack, commands, layout, CI, deploys and other agents, so you don't need to explore. Claim files before large edits.",
+			"instructions":    "Call project_context first in a project: it gives the stack, commands, layout, CI, deploys and other agents, so you don't need to explore. Before building or testing, read the files it lists under guides, and check other_scripts for required steps. Claim files before large edits.",
 		}, nil
 	case "ping":
 		return map[string]any{}, nil

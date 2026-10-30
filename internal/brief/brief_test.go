@@ -90,11 +90,29 @@ func TestForCarriesFactsNotFetchedText(t *testing.T) {
 	if len(b.Deploys) != 1 || b.Deploys[0].URL != "https://x.dev" || b.Deploys[0].State != "ready" {
 		t.Errorf("deploys: %+v", b.Deploys)
 	}
-	if len(b.Agents) != 2 || b.Agents[0].Task != "other work" || b.Agents[1].Branch != "oryn/x" {
+	if len(b.Agents) != 3 || b.Agents[0].Task != "other work" || b.Agents[2].Branch != "oryn/x" {
 		t.Errorf("agents: %+v", b.Agents)
+	}
+	// One in the same folder might be another agent, so it stays, marked.
+	if !b.Agents[1].SameFolder || b.Agents[0].SameFolder {
+		t.Errorf("same folder: %+v", b.Agents)
 	}
 	if len(b.Claims) != 1 || b.Claims[0].Agent != "other" {
 		t.Errorf("claims: %+v", b.Claims)
+	}
+}
+
+func TestGuidesAndOtherScripts(t *testing.T) {
+	d := t.TempDir()
+	file(t, d, "package.json", `{"scripts":{"build":"x","convex:sync":"y"}}`)
+	file(t, d, "AGENTS.md", "")
+	file(t, d, "README.md", "")
+	b := For(d, nil, nil, nil, d, time.Now())
+	if len(b.Scripts) != 1 || b.Scripts[0] != "convex:sync" {
+		t.Errorf("scripts: %v", b.Scripts)
+	}
+	if len(b.Guides) != 2 || b.Guides[0] != "AGENTS.md" {
+		t.Errorf("guides: %v", b.Guides)
 	}
 }
 
