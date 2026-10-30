@@ -2,6 +2,8 @@ package source
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -77,5 +79,51 @@ func TestRunLogPicksTheFailedJobAndKeepsTheEnd(t *testing.T) {
 	}
 	if lines[0] != "job: test" || len(lines) != logTail+1 || lines[len(lines)-1] != "##[error]boom" {
 		t.Errorf("%d lines, first %q last %q", len(lines), lines[0], lines[len(lines)-1])
+	}
+}
+
+func TestWritesGoWhereGitHubDocumentsThem(t *testing.T) {
+	type call struct{ method, path, body string }
+	var got []call
+	fakeGitHub(t, func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if r.Header.Get("Authorization") != "bearer tok" {
+			t.Error("no token sent")
+		}
+		got = append(got, call{r.Method, r.URL.Path, string(b)})
+		w.Write([]byte(`{}`))
+	})
+	ctx := context.Background()
+	if err := MergePR(ctx, ghRef, 4, "abc", "squash"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApprovePR(ctx, ghRef, 4, "abc"); err != nil {
+		t.Fatal(err)
+	}
+	if err := RerunFailed(ctx, ghRef, 7); err != nil {
+		t.Fatal(err)
+	}
+	if got[0].method != "PUT" || got[0].path != "/repos/o/r/pulls/4/merge" || got[1].method != "POST" || got[1].path != "/repos/o/r/pulls/4/reviews" ||
+		got[2].method != "POST" || got[2].path != "/repos/o/r/actions/runs/7/rerun-failed-jobs" {
+		t.Fatalf("calls: %+v", got)
+	}
+	var merge map[string]string
+	json.Unmarshal([]byte(got[0].body), &merge)
+	if merge["sha"] != "abc" || merge["merge_method"] != "squash" {
+		t.Errorf("merge must pin the commit: %s", got[0].body)
+	}
+	if !strings.Contains(got[1].body, `"APPROVE"`) || !strings.Contains(got[1].body, `"commit_id":"abc"`) {
+		t.Errorf("approve body: %s", got[1].body)
+	}
+}
+
+func TestWriteErrorsShowGitHubsReason(t *testing.T) {
+	fakeGitHub(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte(`{"message":"Pull Request is not mergeable"}`))
+	})
+	err := MergePR(context.Background(), ghRef, 4, "abc", "merge")
+	if err == nil || !strings.Contains(err.Error(), "not mergeable") || strings.Contains(err.Error(), "tok") {
+		t.Errorf("got %v", err)
 	}
 }

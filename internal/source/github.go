@@ -31,6 +31,8 @@ type PR struct {
 	Review    string // APPROVED, CHANGES_REQUESTED, REVIEW_REQUIRED, or ""
 	CI        string // SUCCESS, FAILURE, ERROR, PENDING, EXPECTED, or "" when no checks
 	CommitOID string // head commit the CI state belongs to
+	Base      string // branch it merges into
+	Mergeable string // MERGEABLE, CONFLICTING, UNKNOWN
 }
 
 func (p PR) Failing() bool { return p.CI == "FAILURE" || p.CI == "ERROR" }
@@ -63,7 +65,7 @@ func GitHubToken() string {
 // prFields is the PR selection shared by the account-wide and per-repo queries.
 const prFields = `
 fragment pr on PullRequest {
-  number title url isDraft updatedAt reviewDecision
+  number title url isDraft updatedAt reviewDecision baseRefName mergeable
   repository { nameWithOwner }
   author { login }
   commits(last: 1) { nodes { commit { oid statusCheckRollup { state } } } }
@@ -83,6 +85,8 @@ type ghNode struct {
 	IsDraft        bool
 	UpdatedAt      time.Time
 	ReviewDecision string
+	BaseRefName    string
+	Mergeable      string
 	Repository     struct{ NameWithOwner string }
 	Author         *struct{ Login string }
 	Commits        struct {
@@ -106,13 +110,15 @@ type ghResponse struct {
 
 func (n ghNode) pr() PR {
 	p := PR{
-		Repo:    n.Repository.NameWithOwner,
-		Number:  n.Number,
-		Title:   n.Title,
-		URL:     n.URL,
-		Draft:   n.IsDraft,
-		Updated: n.UpdatedAt,
-		Review:  n.ReviewDecision,
+		Repo:      n.Repository.NameWithOwner,
+		Number:    n.Number,
+		Title:     n.Title,
+		URL:       n.URL,
+		Draft:     n.IsDraft,
+		Updated:   n.UpdatedAt,
+		Review:    n.ReviewDecision,
+		Base:      n.BaseRefName,
+		Mergeable: n.Mergeable,
 	}
 	if n.Author != nil {
 		p.Author = n.Author.Login

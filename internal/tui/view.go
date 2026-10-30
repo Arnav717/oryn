@@ -179,6 +179,9 @@ func (m Model) footer() string {
 	if m.discard != nil {
 		return clip(" "+sBad.Render("delete this worktree and its local branch? Type "+m.discard.run.Slug+": ")+m.discard.input.View(), m.w)
 	}
+	if m.actAsk != nil {
+		return m.actionPrompt()
+	}
 	if m.logv != nil {
 		return m.statusLine("j/k scroll · g/G top/end · esc back")
 	}
@@ -291,8 +294,10 @@ func (m Model) projectHints() string {
 		return "enter open · p deploy · [ ] jump · ctrl+p commands"
 	case tabGitHub:
 		switch m.rsub {
+		case svPRs:
+			return "M merge · a approve · enter open · h/l section"
 		case svActions:
-			return "L log · enter open · h/l section"
+			return "L log · R re-run · enter open · h/l section"
 		}
 		return "h/l section · enter open · [ ] jump · ctrl+p commands"
 	case tabActivity:
@@ -599,7 +604,8 @@ func helpLines() []string {
 		row("[  ]", "inside a project: jump to the previous / next window"),
 		row("h/l", "GitHub tab: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
 		row("enter / o", "GitHub tab: open the selected row / the repo in your browser"),
-		row("L", "GitHub Actions: read a run's log"),
+		row("M / a", "GitHub PRs: merge / approve the selected PR (asks first)"),
+		row("L / R", "GitHub Actions: read a run's log / re-run its failed jobs (asks first)"),
 		row("p  D  g", "project windows: deploy · Deploys · GitHub"),
 		"",
 		sBold.Render("Deploys"),

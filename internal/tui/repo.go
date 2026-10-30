@@ -412,6 +412,12 @@ func (m Model) handleRepoKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.switchTab(-1)
 	case "D":
 		m.setTab(tabDeploys)
+	case "M":
+		return m.askMerge(d)
+	case "a":
+		return m.askApprove(d)
+	case "R":
+		return m.askRerun(d)
 	case "L":
 		return m.openRunLog(d)
 	case "l", "right", "tab":

@@ -138,3 +138,29 @@ func jobLog(ctx context.Context, token, u string) ([]string, error) {
 	}
 	return out[max(0, len(out)-logTail):], nil
 }
+
+func githubWrite(ctx context.Context, method, u string, body any) error {
+	token := GitHubToken()
+	if token == "" {
+		return ErrNoToken
+	}
+	return doJSONH(ctx, method, u, authHeaders(token), body, nil)
+}
+
+// MergePR merges a pull request at sha. GitHub refuses if the head has moved,
+// so what merges is the commit you were looking at.
+func MergePR(ctx context.Context, ref gitrepo.Ref, number int, sha, method string) error {
+	return githubWrite(ctx, http.MethodPut, fmt.Sprintf("%s/pulls/%d/merge", repoAPI(ref), number),
+		map[string]string{"sha": sha, "merge_method": method})
+}
+
+// ApprovePR approves a pull request at sha.
+func ApprovePR(ctx context.Context, ref gitrepo.Ref, number int, sha string) error {
+	return githubWrite(ctx, http.MethodPost, fmt.Sprintf("%s/pulls/%d/reviews", repoAPI(ref), number),
+		map[string]string{"event": "APPROVE", "commit_id": sha})
+}
+
+// RerunFailed re-runs a run's failed jobs.
+func RerunFailed(ctx context.Context, ref gitrepo.Ref, runID int64) error {
+	return githubWrite(ctx, http.MethodPost, fmt.Sprintf("%s/actions/runs/%d/rerun-failed-jobs", repoAPI(ref), runID), nil)
+}

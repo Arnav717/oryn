@@ -93,6 +93,7 @@ type RepoData struct {
 	DefaultCI     string // checks state of the default branch head
 	HeadSHA       string // the default branch head
 	Failure       *CIFailure
+	MergeMethod   string // merge, squash or rebase: your default on this repo
 
 	OpenPRs     int // total, PRs holds the most recent
 	PRs         []PR
@@ -111,7 +112,7 @@ const repoQuery = `
 query($owner: String!, $name: String!) {
   viewer { login }
   repository(owner: $owner, name: $name) {
-    nameWithOwner url description isPrivate isFork isArchived
+    nameWithOwner url description isPrivate isFork isArchived viewerDefaultMergeMethod
     stargazerCount forkCount
     primaryLanguage { name }
     licenseInfo { spdxId }
@@ -147,17 +148,18 @@ type repoResp struct {
 	Data *struct {
 		Viewer     struct{ Login string }
 		Repository *struct {
-			NameWithOwner    string
-			URL              string
-			Description      string
-			IsPrivate        bool
-			IsFork           bool
-			IsArchived       bool
-			StargazerCount   int
-			ForkCount        int
-			PrimaryLanguage  *struct{ Name string }
-			LicenseInfo      *struct{ SpdxID string }
-			DefaultBranchRef *struct {
+			NameWithOwner            string
+			URL                      string
+			Description              string
+			IsPrivate                bool
+			IsFork                   bool
+			IsArchived               bool
+			ViewerDefaultMergeMethod string
+			StargazerCount           int
+			ForkCount                int
+			PrimaryLanguage          *struct{ Name string }
+			LicenseInfo              *struct{ SpdxID string }
+			DefaultBranchRef         *struct {
 				Name   string
 				Target struct {
 					OID               string
@@ -244,6 +246,7 @@ func convertRepo(ref gitrepo.Ref, r repoResp) (*RepoData, error) {
 		Private: g.IsPrivate, Fork: g.IsFork, Archived: g.IsArchived,
 		Stars: g.StargazerCount, Forks: g.ForkCount,
 		OpenPRs: g.PullRequests.TotalCount, OpenIssues: g.Issues.TotalCount,
+		MergeMethod: strings.ToLower(g.ViewerDefaultMergeMethod),
 	}
 	if g.PrimaryLanguage != nil {
 		d.Language = g.PrimaryLanguage.Name

@@ -139,7 +139,9 @@ type Model struct {
 	discard  *discardAsk
 	stopAsk  *agents.Run // a stop waiting for y/n
 
-	logv *logView
+	actAsk *actionAsk // an outward action waiting for y/n
+	acting bool       // a confirmed action is still running
+	logv   *logView
 
 	hidden map[string]time.Time // Needs you items set aside, until when
 
@@ -373,6 +375,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case actionDoneMsg:
+		return m.onActionDone(msg)
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 
@@ -425,6 +430,9 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.shipAsk != nil {
 		return m.handleShipConfirm(k)
+	}
+	if m.actAsk != nil {
+		return m.handleActionConfirm(k)
 	}
 	if m.logv != nil {
 		return m.handleLogKey(k)
