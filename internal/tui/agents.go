@@ -34,10 +34,7 @@ func (m Model) agentRoot(s agents.Session) string {
 // agentProject names a session's project: the watched one it's in, else its
 // folder.
 func (m Model) agentProject(s agents.Session) string {
-	if root := m.agentRoot(s); root != "" {
-		return filepath.Base(root)
-	}
-	return filepath.Base(s.Dir)
+	return filepath.Base(m.agentRoot(s))
 }
 
 func agentTitle(s agents.Session) string {
@@ -66,13 +63,25 @@ func agentDot(st agents.State) string {
 	return sDim.Render("○")
 }
 
-// agentList is the sessions in view: all of them, or one project's.
-func (m Model) agentList() []agents.Session {
-	if m.screen != screenProject {
-		return m.agents
-	}
+// watchedAgents leaves out sessions in folders you don't watch here.
+func (m Model) watchedAgents() []agents.Session {
 	var out []agents.Session
 	for _, s := range m.agents {
+		if m.agentRoot(s) != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// agentList is the sessions in view: every watched project's, or one's.
+func (m Model) agentList() []agents.Session {
+	list := m.watchedAgents()
+	if m.screen != screenProject {
+		return list
+	}
+	var out []agents.Session
+	for _, s := range list {
 		if m.agentRoot(s) == m.scope {
 			out = append(out, s)
 		}
@@ -82,19 +91,19 @@ func (m Model) agentList() []agents.Session {
 
 func agentAttention(m *Model) []attnItem {
 	var out []attnItem
-	for _, s := range m.agents {
+	for _, s := range m.watchedAgents() {
 		if s.State != agents.Waiting {
 			continue
 		}
 		out = append(out, attnItem{sev: attnWarn, text: s.Tool + " is waiting on you: " + agentTitle(s), at: s.Updated,
-			project: m.agentRoot(s), name: filepath.Base(s.Dir), to: target{section: secAgents}})
+			project: m.agentRoot(s), to: target{section: secAgents}})
 	}
 	return out
 }
 
 func agentWinRows(m *Model) []winRow {
 	var rows []winRow
-	for _, s := range m.agents {
+	for _, s := range m.watchedAgents() {
 		if s.Active() {
 			rows = append(rows, winRow{agentDot(s.State) + " " + pad(m.agentProject(s), 14) + " " + pad(s.Tool, 9) + sDim.Render(agentTitle(s)), target{section: secAgents}})
 		}
@@ -157,7 +166,7 @@ func agentGroups(list []agents.Session) (rows []agents.Session, heads map[int]st
 func (m Model) agentLines() ([]string, []int) {
 	rows, heads := agentGroups(m.agentList())
 	if len(rows) == 0 {
-		return []string{"", sDim.Render("No agent sessions in the last week.")}, nil
+		return []string{"", sDim.Render("No agents in your watched projects in the last week.")}, nil
 	}
 	cw := m.w - 2
 	const nameW, toolW, stateW, ageW = 18, 10, 9, 6

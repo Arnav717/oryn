@@ -54,7 +54,6 @@ type attnItem struct {
 	at      time.Time // when it happened, if known
 	to      target
 	project string // watched project it belongs to, "" for account-wide
-	name    string // label for an item outside your watched projects
 	health  bool   // shown on the repo's own overview, kept out of Needs you
 }
 
@@ -249,7 +248,7 @@ func (m *Model) attention(d *source.RepoData) []string {
 
 // attnRow is one Needs you row: project, what's wrong, how long ago.
 func (m Model) attnRow(it attnItem) string {
-	name := it.name
+	name := ""
 	if it.project != "" {
 		name = filepath.Base(it.project)
 	}
