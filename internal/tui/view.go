@@ -173,7 +173,11 @@ func vulnSummary(total, crit, high int) string {
 
 func (m Model) footer() string {
 	if m.deployAsk != nil {
-		return clip(sWarn.Render("run: "+m.deployAsk.Display()+" ?  y to confirm, any other key cancels"), m.w)
+		prompt := sWarn.Render("run: " + m.deployAsk.Display() + " ?  y to confirm, any other key cancels")
+		if len(m.deployAsk.Warn) > 0 {
+			prompt = sBad.Render("WARNING: "+strings.Join(m.deployAsk.Warn, "; ")+".  ") + prompt
+		}
+		return clip(prompt, m.w)
 	}
 	if m.screen == screenPicker {
 		switch {

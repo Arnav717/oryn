@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -365,5 +366,27 @@ func TestCreateSurvivesDroppedConnection(t *testing.T) {
 	v = &Vercel{base: bad.URL}
 	if _, err = createWith(context.Background(), v, v, "web"); err == nil || !strings.Contains(err.Error(), "409") {
 		t.Fatalf("409 should surface: %v", err)
+	}
+}
+
+func TestPreflightWarnsAboutUnignoredEnv(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, ".env", "SECRET=1")
+	write(t, dir, ".env.example", "SECRET=")
+	if err := exec.Command("git", "-C", dir, "init", "-q").Run(); err != nil {
+		t.Skip("git not available")
+	}
+	if w := PreflightWarnings(dir); len(w) != 1 || !strings.Contains(w[0], ".env is not ignored") {
+		t.Fatalf("unignored .env must warn (and .env.example must not): %v", w)
+	}
+	write(t, dir, ".gitignore", ".env\n")
+	if w := PreflightWarnings(dir); len(w) != 0 {
+		t.Fatalf("gitignored .env must not warn: %v", w)
+	}
+	other := t.TempDir()
+	write(t, other, ".env.local", "X=1")
+	write(t, other, ".vercelignore", ".env.local\n")
+	if w := PreflightWarnings(other); len(w) != 0 {
+		t.Fatalf("platform-ignored .env must not warn: %v", w)
 	}
 }

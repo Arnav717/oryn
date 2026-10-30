@@ -144,7 +144,45 @@ type Command struct {
 	Args    []string
 	Env     []string // extra environment for the child only
 	Dir     string
-	Install string // how to get the CLI when it's missing
+	Install string   // how to get the CLI when it's missing
+	Warn    []string // preflight problems shown in the confirm prompt
+}
+
+// PreflightWarnings lists secret-looking files in dir that a deploy would
+// upload: .env files that neither git nor the platform's ignore file covers.
+func PreflightWarnings(dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var warn []string
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || !(n == ".env" || strings.HasPrefix(n, ".env.")) {
+			continue
+		}
+		if strings.HasSuffix(n, ".example") || strings.HasSuffix(n, ".sample") || strings.HasSuffix(n, ".template") {
+			continue
+		}
+		if exec.Command("git", "-C", dir, "check-ignore", "-q", n).Run() == nil || listedInIgnoreFile(dir, n) {
+			continue
+		}
+		warn = append(warn, n+" is not ignored and would be uploaded")
+	}
+	return warn
+}
+
+func listedInIgnoreFile(dir, name string) bool {
+	for _, f := range []string{".vercelignore", ".netlifyignore", ".cfignore"} {
+		if b, err := os.ReadFile(filepath.Join(dir, f)); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				if strings.TrimSpace(strings.TrimPrefix(line, "/")) == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // Display is the command as shown in the confirm prompt. It never includes
@@ -181,6 +219,14 @@ var outputDirs = []string{"dist", "build", "out", "public", ".output/public"}
 // DeployCommand returns how to publish the linked project to production with
 // the platform's own CLI, which handles building and uploading.
 func DeployCommand(l Link, dir string) (Command, error) {
+	c, err := deployCommand(l, dir)
+	if err == nil {
+		c.Warn = PreflightWarnings(dir)
+	}
+	return c, err
+}
+
+func deployCommand(l Link, dir string) (Command, error) {
 	if !l.Linked() {
 		return Command{}, errors.New("project is not linked to a " + l.Platform + " project yet")
 	}
