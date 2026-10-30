@@ -145,7 +145,7 @@ func (m Model) window(w homeWin, width, height int) string {
 	if len(lines) > ch {
 		lines = lines[:ch]
 	}
-	return box().Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return box(focused).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
 }
 
 func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {

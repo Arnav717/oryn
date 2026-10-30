@@ -283,7 +283,7 @@ func (m Model) pane(p paneID) string {
 	if len(lines) > ch {
 		lines = lines[:ch]
 	}
-	return box().Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return box(p == m.focus).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
 }
 
 func (m Model) paneTitle(p paneID) string {
@@ -420,7 +420,7 @@ func (m Model) fullBox(lines []string) string {
 	for i := range lines {
 		lines[i] = clip(lines[i], cw)
 	}
-	return box().Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return box(false).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
 }
 
 func (m Model) detailLines() []string {

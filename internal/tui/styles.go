@@ -16,6 +16,7 @@ var (
 	green  = lipgloss.Color("#7FCB98")
 	gray   = lipgloss.Color("#7C7F88")
 	light  = lipgloss.Color("#E4E4E7")
+	dark   = lipgloss.Color("#45474D")
 
 	sAccent = lipgloss.NewStyle().Foreground(amber)
 	sTitle  = lipgloss.NewStyle().Foreground(light).Bold(true)
@@ -54,10 +55,13 @@ func rankStyle(rank int) lipgloss.Style {
 	return severityStyle([]string{"UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"}[min(max(rank, 0), 4)])
 }
 
-// box holds a body or window. The border is invisible: it keeps the margin,
-// and whitespace does the separating.
-func box() lipgloss.Style {
-	return lipgloss.NewStyle().Border(lipgloss.HiddenBorder())
+// box holds a body or window. Square and quiet; amber marks the one with focus.
+func box(focused bool) lipgloss.Style {
+	c := dark
+	if focused {
+		c = amber
+	}
+	return lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(c)
 }
 
 // pad truncates or right-pads s (which may contain ANSI codes) to width w.
