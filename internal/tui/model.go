@@ -109,6 +109,13 @@ type Model struct {
 	pickCursor  int
 	pickLoading bool
 
+	creating      bool // typing a new project's name in the picker
+	createConfirm bool
+	createName    string
+	createInput   textinput.Model
+
+	deployAsk *deploy.Command // a deploy waiting for y/n
+
 	ghCursor int
 	ghOffset int
 
@@ -240,6 +247,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.flash = "connected " + msg.platform + " as " + msg.who
 		return m, m.startRefresh()
 
+	case createdMsg:
+		if msg.err != nil {
+			m.createConfirm = false
+			m.flash = "create failed: " + msg.err.Error()
+			return m, nil
+		}
+		return m.linkTo(msg.ref, "created")
+
+	case deployDoneMsg:
+		if msg.err != nil {
+			m.flash = msg.platform + " deploy failed: " + msg.err.Error()
+		} else {
+			m.flash = "deploy finished"
+		}
+		return m, m.startRefresh()
+
 	case projectsMsg:
 		if m.screen == screenPicker && msg.platform == m.pickTarget.Link.Platform {
 			m.pickLoading, m.pickItems, m.pickErr = false, msg.items, msg.err
@@ -289,6 +312,10 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(k)
 		return m, cmd
+	}
+
+	if m.deployAsk != nil {
+		return m.handleDeployConfirm(k)
 	}
 
 	if m.showHelp {

@@ -249,6 +249,15 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.dpCursor = 1 << 30
 	case "A":
 		return m.openAccounts("")
+	case "p":
+		if t, ok := m.deployTargetAtCursor(); ok {
+			if !t.Link.Linked() {
+				m.flash = "link a project first (enter), then press p to deploy"
+				return m, nil
+			}
+			return m.askDeploy(t)
+		}
+		m.flash = "nothing selected to deploy"
 	case "l":
 		if t, ok := m.deployTargetAtCursor(); ok {
 			return m.linkTarget(t)

@@ -1,8 +1,11 @@
 package tui
 
 import (
+	"errors"
 	"github.com/Arnav717/oryn/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -60,7 +63,7 @@ func TestAccountsTokenEntry(t *testing.T) {
 func TestPickerLinksProject(t *testing.T) {
 	cfg := &config.Config{Ephemeral: true}
 	m := Model{
-		cfg: cfg, screen: screenPicker, pickBack: screenDeploys, pickCursor: 1,
+		cfg: cfg, screen: screenPicker, pickBack: screenDeploys, pickCursor: 2, // row 0 is "create new"
 		pickTarget: app.DeployTarget{Link: deploy.Link{Platform: "vercel", Project: "/p/web"}},
 		pickItems:  []deploy.ProjectRef{{Name: "a", Ref: "prj_a"}, {Name: "b", Ref: "prj_b", Team: "team_1"}},
 	}
@@ -132,5 +135,84 @@ func TestProjectWithoutConfigOffersLinking(t *testing.T) {
 	central := Model{snap: &app.Snapshot{}, screen: screenDeploys}
 	if lines, rows, _ := central.deployRows(); len(rows) != 0 || len(lines) == 0 {
 		t.Errorf("central empty state: %v", lines)
+	}
+}
+
+func TestCreateProjectFlow(t *testing.T) {
+	cfg := &config.Config{Ephemeral: true}
+	m := Model{
+		cfg: cfg, screen: screenPicker, pickBack: screenProject,
+		pickTarget: app.DeployTarget{Link: deploy.Link{Platform: "vercel", Project: "/code/My Portfolio"}},
+	}
+	// The first row creates; enter on it asks for a name, prefilled from the folder.
+	next, _ := m.handlePickerKey(keyMsg("enter"))
+	m = next.(Model)
+	if !m.creating || m.createInput.Value() != "my-portfolio" {
+		t.Fatalf("creating=%v name=%q", m.creating, m.createInput.Value())
+	}
+	// A bad name is refused, with no confirmation step.
+	m.createInput.SetValue("Bad Name")
+	next, _ = m.handlePickerKey(keyMsg("enter"))
+	m = next.(Model)
+	if m.createConfirm || !m.creating {
+		t.Fatal("invalid name must not reach confirmation")
+	}
+	m.createInput.SetValue("my-portfolio")
+	next, _ = m.handlePickerKey(keyMsg("enter"))
+	m = next.(Model)
+	if !m.createConfirm || m.createName != "my-portfolio" {
+		t.Fatalf("want confirmation, got %+v", m.createConfirm)
+	}
+	// Anything but y cancels without creating.
+	next, cmd := m.handlePickerKey(keyMsg("x"))
+	if cmd != nil || next.(Model).createConfirm {
+		t.Fatal("non-y must cancel")
+	}
+	// y starts creation (a command to run); nothing is linked until it succeeds.
+	next, cmd = m.handlePickerKey(keyMsg("y"))
+	if cmd == nil || len(cfg.DeployLinks) != 0 {
+		t.Fatalf("y should start creation only: cmd=%v links=%v", cmd != nil, cfg.DeployLinks)
+	}
+	// When the platform confirms, the project is linked and we return where we were.
+	out, _ := next.(Model).Update(createdMsg{platform: "vercel", ref: deploy.ProjectRef{Name: "my-portfolio", Ref: "prj_9", Team: "usr_1"}})
+	got := out.(Model)
+	if got.screen != screenProject || len(cfg.DeployLinks) != 1 || cfg.DeployLinks[0].Ref != "prj_9" || !strings.Contains(got.flash, "press p to deploy") {
+		t.Fatalf("screen=%v links=%+v flash=%q", got.screen, cfg.DeployLinks, got.flash)
+	}
+	// A failed create links nothing.
+	out, _ = m.Update(createdMsg{platform: "vercel", err: errors.New("name taken")})
+	if len(cfg.DeployLinks) != 1 || !strings.Contains(out.(Model).flash, "name taken") {
+		t.Fatal("failed create must not link")
+	}
+}
+
+func TestDeployNeedsConfirmation(t *testing.T) {
+	t.Setenv("VERCEL_TOKEN", "tok")
+	t.Setenv("PATH", t.TempDir()) // no CLIs installed
+	target := app.DeployTarget{Link: deploy.Link{Platform: "vercel", Project: t.TempDir(), Ref: "prj", Team: "usr"}}
+	m := Model{screen: screenDeploys}
+	next, cmd := m.askDeploy(target)
+	if got := next.(Model); got.deployAsk != nil || cmd != nil || !strings.Contains(got.flash, "npm i -g vercel") {
+		t.Fatalf("missing CLI should explain how to install: %q", got.flash)
+	}
+	// With a CLI present, a prompt is shown and nothing runs until y.
+	bin := t.TempDir()
+	os.WriteFile(filepath.Join(bin, "vercel"), []byte("#!/bin/sh\n"), 0o755)
+	t.Setenv("PATH", bin)
+	next, cmd = m.askDeploy(target)
+	m = next.(Model)
+	if m.deployAsk == nil || cmd != nil {
+		t.Fatal("should wait for confirmation without running anything")
+	}
+	if strings.Contains(m.deployAsk.Display(), "tok") && strings.Contains(m.deployAsk.Display(), "VERCEL_TOKEN") {
+		t.Error("token leaked into the prompt")
+	}
+	next, cmd = m.handleDeployConfirm(keyMsg("n"))
+	if cmd != nil || next.(Model).deployAsk != nil {
+		t.Fatal("n must cancel")
+	}
+	_, cmd = m.handleDeployConfirm(keyMsg("y"))
+	if cmd == nil {
+		t.Fatal("y should start the deploy")
 	}
 }

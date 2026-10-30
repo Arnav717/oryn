@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -177,7 +178,7 @@ func TestConnectStoresOnlyVerifiedTokens(t *testing.T) {
 	}
 
 	ps, err := v.Projects(context.Background())
-	if err != nil || len(ps) != 2 || ps[0].Team != "team_7" || ps[1].Team != "" {
+	if err != nil || len(ps) != 2 || ps[0].Team != "team_7" || ps[1].Team != "usr_1" {
 		t.Fatalf("projects: %+v %v", ps, err)
 	}
 
@@ -201,5 +202,97 @@ func TestCloudflareConnectStoresAccount(t *testing.T) {
 	}
 	if tok, acc := cloudflareCreds(); tok != "tok" || acc != "acc9" {
 		t.Fatalf("creds: %q %q", tok, acc)
+	}
+}
+
+func TestNames(t *testing.T) {
+	for in, want := range map[string]string{"My Portfolio_2": "my-portfolio-2", "--x--": "x", "Vontrix.dev": "vontrix-dev", "": ""} {
+		if got := SuggestName(in); got != want {
+			t.Errorf("SuggestName(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for _, ok := range []string{"a", "my-site", "site2"} {
+		if !ValidName(ok) {
+			t.Errorf("%q should be valid", ok)
+		}
+	}
+	for _, bad := range []string{"", "-a", "a-", "My", "a b", "a_b", strings.Repeat("a", 60)} {
+		if ValidName(bad) {
+			t.Errorf("%q should be invalid", bad)
+		}
+	}
+}
+
+func TestCreate(t *testing.T) {
+	SetCredsDir(t.TempDir())
+	t.Cleanup(func() { SetCredsDir("") })
+	t.Setenv("VERCEL_TOKEN", "tok")
+	t.Setenv("NETLIFY_AUTH_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acc1")
+	var seen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.Method+" "+r.URL.Path)
+		if r.Method != "POST" || r.Header.Get("Authorization") != "Bearer tok" {
+			http.Error(w, "bad", 400)
+			return
+		}
+		switch r.URL.Path {
+		case "/v11/projects":
+			w.Write([]byte(`{"id":"prj_new","name":"web","accountId":"usr_1"}`))
+		case "/api/v1/sites":
+			w.Write([]byte(`{"id":"site_new","name":"web"}`))
+		default:
+			w.Write([]byte(`{"result":{"name":"web"}}`))
+		}
+	}))
+	defer srv.Close()
+	ctx := context.Background()
+	if p, err := (&Vercel{base: srv.URL}).Create(ctx, "web"); err != nil || p.Ref != "prj_new" || p.Team != "usr_1" {
+		t.Errorf("vercel: %+v %v", p, err)
+	}
+	if p, err := (&Netlify{base: srv.URL}).Create(ctx, "web"); err != nil || p.Ref != "site_new" {
+		t.Errorf("netlify: %+v %v", p, err)
+	}
+	if p, err := (&Cloudflare{base: srv.URL}).Create(ctx, "web"); err != nil || p.Ref != "web" {
+		t.Errorf("cloudflare: %+v %v", p, err)
+	}
+	want := "POST /v11/projects,POST /api/v1/sites,POST /client/v4/accounts/acc1/pages/projects"
+	if got := strings.Join(seen, ","); got != want {
+		t.Errorf("requests: %s", got)
+	}
+	if CreatorFor("vercel") == nil || CreatorFor("nope") != nil {
+		t.Error("CreatorFor")
+	}
+}
+
+func TestDeployCommand(t *testing.T) {
+	SetCredsDir(t.TempDir())
+	t.Cleanup(func() { SetCredsDir("") })
+	t.Setenv("VERCEL_TOKEN", "secret-token")
+	dir := t.TempDir()
+
+	c, err := DeployCommand(Link{Platform: "vercel", Ref: "prj_1", Team: "usr_1"}, dir)
+	if err != nil || c.Bin != "vercel" || !strings.Contains(strings.Join(c.Env, " "), "VERCEL_PROJECT_ID=prj_1") {
+		t.Fatalf("vercel: %+v %v", c, err)
+	}
+	if strings.Contains(c.Display(), "secret-token") {
+		t.Error("the confirm prompt must never show the token")
+	}
+	if _, err := DeployCommand(Link{Platform: "vercel", Ref: "prj_1"}, dir); err == nil {
+		t.Error("vercel link without account id should ask to relink")
+	}
+	if _, err := DeployCommand(Link{Platform: "netlify"}, dir); err == nil {
+		t.Error("unlinked project must not deploy")
+	}
+	if _, err := DeployCommand(Link{Platform: "cloudflare", Ref: "web"}, dir); err == nil {
+		t.Error("cloudflare needs a build folder")
+	}
+	t.Setenv("CLOUDFLARE_API_TOKEN", "t")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+	os.Mkdir(filepath.Join(dir, "dist"), 0o755)
+	c, err = DeployCommand(Link{Platform: "cloudflare", Ref: "web"}, dir)
+	if err != nil || c.Args[2] != "dist" || c.Args[4] != "web" {
+		t.Fatalf("cloudflare: %+v %v", c, err)
 	}
 }

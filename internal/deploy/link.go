@@ -159,11 +159,7 @@ func (v *Vercel) Projects(ctx context.Context) ([]ProjectRef, error) {
 	}
 	out := make([]ProjectRef, 0, len(r.Projects))
 	for _, p := range r.Projects {
-		team := ""
-		if strings.HasPrefix(p.AccountID, "team_") {
-			team = p.AccountID
-		}
-		out = append(out, ProjectRef{Name: p.Name, Ref: p.ID, Team: team})
+		out = append(out, ProjectRef{Name: p.Name, Ref: p.ID, Team: p.AccountID})
 	}
 	return out, nil
 }

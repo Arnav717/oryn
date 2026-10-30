@@ -172,6 +172,17 @@ func vulnSummary(total, crit, high int) string {
 }
 
 func (m Model) footer() string {
+	if m.deployAsk != nil {
+		return clip(sWarn.Render("run: "+m.deployAsk.Display()+" ?  y to confirm, any other key cancels"), m.w)
+	}
+	if m.screen == screenPicker {
+		switch {
+		case m.createConfirm:
+			return clip(sWarn.Render("create project '"+m.createName+"' on "+m.pickTarget.Link.Platform+"?  y to confirm, any other key cancels"), m.w)
+		case m.creating:
+			return clip(m.createInput.View()+sDim.Render("   enter to continue · esc cancel"), m.w)
+		}
+	}
 	if m.cmdMode {
 		return clip(m.input.View()+m.suggestions(), m.w)
 	}
@@ -186,10 +197,10 @@ func (m Model) footer() string {
 		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
 	}
 	if m.screen == screenPicker {
-		return clip(sDim.Render("j/k move · enter link · esc back · q quit"), m.w)
+		return clip(sDim.Render("j/k move · enter link · n new project · esc back · q quit"), m.w)
 	}
 	if m.screen == screenDeploys {
-		hints := sDim.Render("j/k move · enter open/link · l link project · A accounts · esc home · r refresh · ? help · q quit")
+		hints := sDim.Render("j/k move · enter open/link · l link · p deploy · A accounts · esc home · r refresh · ? help · q quit")
 		if m.flash == "" {
 			return clip(hints, m.w)
 		}
@@ -226,7 +237,7 @@ func (m Model) footer() string {
 	if m.tabBarVisible() {
 		hints = sDim.Render("tab pane · j/k move · enter open · / search · [ ] tabs · esc home · r refresh · ? help · q quit")
 		if m.tab == tabDeploys {
-			hints = sDim.Render("j/k move · enter open/link · l link project · A accounts · [ ] tabs · esc home · r refresh · ? help · q quit")
+			hints = sDim.Render("j/k move · enter open/link · l link · p deploy · A accounts · [ ] tabs · esc home · r refresh · ? help · q quit")
 		}
 		if m.tab == tabGitHub {
 			hints = sDim.Render("h/l section · 1-8 jump · j/k move · enter open · o repo · [ ] tabs · esc home · r refresh · ? help · q quit")
@@ -501,6 +512,8 @@ func helpLines() []string {
 		row("enter", "open package (DES)"),
 		row("c (on home)", "changes since you last looked"),
 		row("D (on home)", "deployments"),
+		row("p (deploys)", "deploy the linked project (asks first)"),
+		row("n (link picker)", "create a new project on the platform"),
 		row("A (on home)", "connect Vercel / Netlify / Cloudflare accounts"),
 		row("r", "refresh now"),
 		row("q", "quit"),
