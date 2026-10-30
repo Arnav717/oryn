@@ -486,18 +486,70 @@ func isNewKey(evs []store.Event, key string) bool {
 	return slices.ContainsFunc(evs, func(e store.Event) bool { return e.Key == key })
 }
 
+// sinceRow is one display line of the since section: a single event, or
+// several vulns in the same package folded together.
+type sinceRow struct {
+	sev  int
+	line string
+}
+
+// groupSince folds vuln events for the same package@version into one row so a
+// single bad package doesn't crowd out everything else. Order follows evs.
+func groupSince(evs []store.Event) []sinceRow {
+	var rows []sinceRow
+	idx := map[string]int{}   // package@version -> index into rows
+	count := map[string]int{} // package@version -> vulns folded
+	first := map[string]store.Event{}
+	for _, e := range evs {
+		pkg := vulnPkg(e)
+		if pkg == "" {
+			rows = append(rows, sinceRow{e.Severity, eventLine(e)})
+			continue
+		}
+		count[pkg]++
+		if count[pkg] == 1 {
+			first[pkg] = e
+			idx[pkg] = len(rows)
+			rows = append(rows, sinceRow{e.Severity, eventLine(e)})
+			continue
+		}
+		f := first[pkg]
+		rows[idx[pkg]].line = sDim.Render(f.At.Format("Jan02 15:04")) + " " + rankStyle(f.Severity).Render(pad("VULN", 7)) + " " +
+			fmt.Sprintf("%d vulns in %s, worst %s", count[pkg], pkg, strings.ToLower(sevName(f.Severity)))
+	}
+	return rows
+}
+
+// vulnPkg extracts "package@version" from a vuln event key
+// ("vuln:<id>:<ecosystem>:<package>@<version>"), or "" for other events.
+func vulnPkg(e store.Event) string {
+	if e.Kind != "vuln" {
+		return ""
+	}
+	parts := strings.SplitN(e.Key, ":", 4)
+	if len(parts) < 4 {
+		return ""
+	}
+	return parts[3]
+}
+
+func sevName(rank int) string {
+	return []string{"unknown", "low", "medium", "high", "critical"}[min(max(rank, 0), 4)]
+}
+
 func (m Model) sinceLines() []string {
 	evs := m.sinceEvents()
 	if len(evs) == 0 {
 		return nil
 	}
+	rows := groupSince(evs)
 	head := sTitle.Render("SINCE YOU LAST LOOKED") + sDim.Render(fmt.Sprintf("  %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(evs)))
 	lines := []string{"", head}
-	for _, e := range evs[:min(6, len(evs))] {
-		lines = append(lines, "  "+eventLine(e))
+	for _, r := range rows[:min(6, len(rows))] {
+		lines = append(lines, "  "+r.line)
 	}
-	if len(evs) > 6 {
-		lines = append(lines, sDim.Render(fmt.Sprintf("  …and %d more on the tape (t)", len(evs)-6)))
+	if len(rows) > 6 {
+		lines = append(lines, sDim.Render(fmt.Sprintf("  …and %d more changes (c)", len(rows)-6)))
 	}
 	return lines
 }

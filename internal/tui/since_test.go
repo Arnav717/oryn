@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -26,5 +27,21 @@ func TestSinceEvents(t *testing.T) {
 	m.since = time.Time{}
 	if m.sinceEvents() != nil {
 		t.Fatal("first run must show nothing")
+	}
+}
+
+func TestGroupSince(t *testing.T) {
+	evs := []store.Event{
+		{Key: "vuln:A:PyPI:pillow@12.3.0", Kind: "vuln", Severity: 4},
+		{Key: "vuln:B:PyPI:pillow@12.3.0", Kind: "vuln", Severity: 3},
+		{Key: "vuln:C:npm:@sentry/node@1.0.0", Kind: "vuln", Severity: 3},
+		{Key: "review:x", Kind: "review", Severity: 2},
+	}
+	rows := groupSince(evs)
+	if len(rows) != 3 {
+		t.Fatalf("want 3 rows, got %d", len(rows))
+	}
+	if !strings.Contains(rows[0].line, "2 vulns in pillow@12.3.0, worst critical") {
+		t.Errorf("group line: %q", rows[0].line)
 	}
 }
