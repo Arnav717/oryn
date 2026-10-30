@@ -231,6 +231,7 @@ func (m Model) linkTo(ref deploy.ProjectRef, verb string) (tea.Model, tea.Cmd) {
 	if !m.cfg.Ephemeral {
 		if err := m.cfg.Save(); err != nil {
 			m.flash = verb + ", but couldn't save config: " + err.Error()
+			m.keepFlash = m.flash
 			return m, m.startRefresh()
 		}
 	}
@@ -238,6 +239,7 @@ func (m Model) linkTo(ref deploy.ProjectRef, verb string) (tea.Model, tea.Cmd) {
 	if verb == "created" {
 		m.flash += " · press p to deploy"
 	}
+	m.keepFlash = m.flash
 	return m, m.startRefresh()
 }
 
@@ -325,11 +327,7 @@ func createCmd(platform, name string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		c := deploy.CreatorFor(platform)
-		if c == nil {
-			return createdMsg{platform: platform, err: fmt.Errorf("cannot create projects on %s", platform)}
-		}
-		ref, err := c.Create(ctx, name)
+		ref, err := deploy.CreateProject(ctx, platform, name)
 		return createdMsg{platform, ref, err}
 	}
 }

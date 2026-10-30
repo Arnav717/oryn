@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/Arnav717/oryn/internal/source"
@@ -94,6 +96,42 @@ func (c *Cloudflare) Create(ctx context.Context, name string) (ProjectRef, error
 	return ProjectRef{Name: r.Result.Name, Ref: r.Result.Name}, nil
 }
 
+// CreateProject creates a project and survives a dropped connection: a
+// transport error doesn't say whether the platform processed the request, so
+// it checks for the project before retrying once. HTTP errors (name taken,
+// bad token) are returned as they are.
+func CreateProject(ctx context.Context, platform, name string) (ProjectRef, error) {
+	cn := ConnectorFor(platform)
+	cr, _ := cn.(Creator)
+	if cr == nil {
+		return ProjectRef{}, errors.New("cannot create projects on " + platform)
+	}
+	return createWith(ctx, cn, cr, name)
+}
+
+func createWith(ctx context.Context, cn Connector, cr Creator, name string) (ProjectRef, error) {
+	var err error
+	for attempt := 0; attempt < 2; attempt++ {
+		var ref ProjectRef
+		if ref, err = cr.Create(ctx, name); err == nil {
+			return ref, nil
+		}
+		var netErr *neturl.Error
+		if !errors.As(err, &netErr) {
+			return ProjectRef{}, err
+		}
+		// Did it get created anyway?
+		if ps, lerr := cn.Projects(ctx); lerr == nil {
+			for _, p := range ps {
+				if p.Name == name {
+					return p, nil
+				}
+			}
+		}
+	}
+	return ProjectRef{}, err
+}
+
 // CreatorFor returns the platform's Creator, or nil.
 func CreatorFor(platform string) Creator {
 	c, _ := ConnectorFor(platform).(Creator)
@@ -121,9 +159,17 @@ func (c Command) Installed() bool {
 	return err == nil
 }
 
-// Cmd builds the runnable command.
+// Cmd builds the runnable command. On Unix it is wrapped so the terminal
+// stays on the CLI's output until Enter is pressed: oryn redraws its own
+// screen the moment the process exits, which would wipe the build log.
 func (c Command) Cmd() *exec.Cmd {
 	cmd := exec.Command(c.Bin, c.Args...)
+	if runtime.GOOS != "windows" {
+		cmd = exec.Command("sh", "-c",
+			`"$@"; code=$?; printf '\n[oryn] %s exited with status %s. Press Enter to return to oryn. ' "$1" "$code"; read _; exit $code`,
+			"sh", c.Bin)
+		cmd.Args = append(cmd.Args, c.Args...)
+	}
 	cmd.Dir = c.Dir
 	cmd.Env = append(os.Environ(), c.Env...)
 	return cmd

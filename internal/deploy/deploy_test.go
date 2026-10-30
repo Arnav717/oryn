@@ -296,3 +296,74 @@ func TestDeployCommand(t *testing.T) {
 		t.Fatalf("cloudflare: %+v %v", c, err)
 	}
 }
+
+// flakyServer drops the connection on POSTs it is told to, optionally after
+// recording the project, like a response lost on the way back.
+func flakyServer(t *testing.T, dropFirstPOSTs int, createBeforeDrop bool) (*httptest.Server, *[]string) {
+	var created []string
+	var posts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST":
+			posts++
+			if posts <= dropFirstPOSTs {
+				if createBeforeDrop {
+					created = append(created, "web")
+				}
+				conn, _, _ := w.(http.Hijacker).Hijack()
+				conn.Close()
+				return
+			}
+			created = append(created, "web")
+			w.Write([]byte(`{"id":"prj_new","name":"web","accountId":"usr_1"}`))
+		default: // project list
+			out := `{"projects":[`
+			for i, n := range created {
+				if i > 0 {
+					out += ","
+				}
+				out += `{"id":"prj_existing","name":"` + n + `","accountId":"usr_1"}`
+			}
+			w.Write([]byte(out + `]}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &created
+}
+
+func TestCreateSurvivesDroppedConnection(t *testing.T) {
+	SetCredsDir(t.TempDir())
+	t.Cleanup(func() { SetCredsDir("") })
+	t.Setenv("VERCEL_TOKEN", "tok")
+
+	// Dropped before the platform did anything: retried once, created once.
+	srv, created := flakyServer(t, 1, false)
+	v := &Vercel{base: srv.URL}
+	ref, err := createWith(context.Background(), v, v, "web")
+	if err != nil || ref.Ref != "prj_new" || len(*created) != 1 {
+		t.Fatalf("retry case: %+v err=%v created=%v", ref, err, *created)
+	}
+
+	// Created, but the response was lost: adopt it, never create a duplicate.
+	srv, created = flakyServer(t, 1, true)
+	v = &Vercel{base: srv.URL}
+	ref, err = createWith(context.Background(), v, v, "web")
+	if err != nil || ref.Ref != "prj_existing" || len(*created) != 1 {
+		t.Fatalf("lost-response case: %+v err=%v created=%v", ref, err, *created)
+	}
+
+	// Keeps failing: reports the error instead of looping.
+	srv, _ = flakyServer(t, 99, false)
+	v = &Vercel{base: srv.URL}
+	if _, err = createWith(context.Background(), v, v, "web"); err == nil {
+		t.Fatal("persistent failure should be reported")
+	}
+
+	// HTTP-level refusals are not retried or adopted.
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "taken", 409) }))
+	defer bad.Close()
+	v = &Vercel{base: bad.URL}
+	if _, err = createWith(context.Background(), v, v, "web"); err == nil || !strings.Contains(err.Error(), "409") {
+		t.Fatalf("409 should surface: %v", err)
+	}
+}

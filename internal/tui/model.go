@@ -115,6 +115,7 @@ type Model struct {
 	createInput   textinput.Model
 
 	deployAsk *deploy.Command // a deploy waiting for y/n
+	keepFlash string          // result message that must survive the refresh it triggers
 
 	ghCursor int
 	ghOffset int
@@ -231,6 +232,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ghClamp()
 		m.repoClamp()
 		m.flash = "updated " + m.snap.At.Format("15:04:05")
+		if m.keepFlash != "" {
+			m.flash = m.keepFlash + "  ·  " + m.flash
+			m.keepFlash = ""
+		}
 		if n := len(m.snap.Warnings); n > 0 {
 			m.flash += fmt.Sprintf(" · %d warning(s): %s", n, m.snap.Warnings[0])
 		}
@@ -261,6 +266,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.flash = "deploy finished"
 		}
+		m.keepFlash = m.flash
 		return m, m.startRefresh()
 
 	case projectsMsg:

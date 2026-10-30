@@ -46,6 +46,11 @@ func doJSONH(ctx context.Context, method, url string, headers map[string]string,
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	if method != http.MethodGet {
+		// Writes get a fresh connection: Go can't safely retry a POST on an
+		// idle connection the server already closed, which shows up as EOF.
+		req.Close = true
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
