@@ -47,6 +47,9 @@ func (m Model) View() string {
 		body = m.fullBox(helpLines())
 	case m.screen == screenHome:
 		body = m.fullBox(m.homeLines())
+	case m.screen == screenChanges:
+		lines, _ := m.changesLines()
+		body = m.fullBox(lines[min(m.chOffset, len(lines)):])
 	case m.screen == screenGitHub:
 		lines, _, _ := m.ghLines()
 		body = m.fullBox(lines[min(m.ghOffset, len(lines)):])
@@ -67,7 +70,12 @@ func (m Model) View() string {
 
 func (m Model) header() string {
 	left := sLogo.Render("ORYN")
-	if m.screen == screenGitHub {
+	if m.screen == screenChanges {
+		left += " " + sDim.Render("›") + " " + sBold.Render("changes")
+		if !m.since.IsZero() {
+			left += "  " + sDim.Render(fmt.Sprintf("since %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(m.sinceEvents())))
+		}
+	} else if m.screen == screenGitHub {
 		left += " " + sDim.Render("›") + " " + sBold.Render("github")
 		if review, mine, failing := m.ghSummary(); m.snap != nil && m.snap.GitHub != nil {
 			parts := []string{fmt.Sprintf("%d to review", review), fmt.Sprintf("%d open", mine)}
@@ -152,6 +160,13 @@ func vulnSummary(total, crit, high int) string {
 func (m Model) footer() string {
 	if m.cmdMode {
 		return clip(m.input.View()+m.suggestions(), m.w)
+	}
+	if m.screen == screenChanges {
+		hints := sDim.Render("j/k move · enter open in browser · e expand/fold · esc home · r refresh · ? help · q quit")
+		if m.flash == "" {
+			return clip(hints, m.w)
+		}
+		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
 	}
 	if m.screen == screenGitHub {
 		hints := sDim.Render("j/k move · enter open in browser · esc home · r refresh · ? help · q quit")
@@ -447,6 +462,7 @@ func helpLines() []string {
 		row("j/k, ↑/↓", "move"),
 		row("g / G, pgup / pgdn", "top / bottom, page"),
 		row("enter", "open package (DES)"),
+		row("c (on home)", "changes since you last looked"),
 		row("r", "refresh now"),
 		row("q", "quit"),
 		"",

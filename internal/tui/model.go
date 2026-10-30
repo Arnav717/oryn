@@ -65,6 +65,7 @@ type screen int
 const (
 	screenHome screen = iota
 	screenProject
+	screenChanges
 	screenGitHub
 )
 
@@ -87,6 +88,9 @@ type Model struct {
 
 	stats map[string]projStat // by project path
 	total projStat
+
+	chCursor, chOffset int // changes screen
+	chExpand           bool
 
 	ghCursor int
 	ghOffset int
@@ -266,6 +270,8 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleHomeKey(k)
 	case screenGitHub:
 		return m.handleGHKey(k)
+	case screenChanges:
+		return m.handleChangesKey(k)
 	}
 
 	if m.screen == screenProject && m.tab == tabGitHub {

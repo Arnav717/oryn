@@ -198,6 +198,10 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.homeCursor = len(items) - 1
 	case "enter", "l", "right":
 		return m.activate(items[m.homeCursor])
+	case "c":
+		m.screen = screenChanges
+		m.chCursor, m.chOffset, m.chExpand = 0, 0, false
+		m.chClamp()
 	case "a":
 		return m.startAdd(m.cwd)
 	case "d", "x":
@@ -491,6 +495,8 @@ func isNewKey(evs []store.Event, key string) bool {
 type sinceRow struct {
 	sev  int
 	line string
+	url  string
+	evs  []store.Event // every event folded into this row
 }
 
 // groupSince folds vuln events for the same package@version into one row so a
@@ -503,16 +509,17 @@ func groupSince(evs []store.Event) []sinceRow {
 	for _, e := range evs {
 		pkg := vulnPkg(e)
 		if pkg == "" {
-			rows = append(rows, sinceRow{e.Severity, eventLine(e)})
+			rows = append(rows, sinceRow{e.Severity, eventLine(e), e.URL, []store.Event{e}})
 			continue
 		}
 		count[pkg]++
 		if count[pkg] == 1 {
 			first[pkg] = e
 			idx[pkg] = len(rows)
-			rows = append(rows, sinceRow{e.Severity, eventLine(e)})
+			rows = append(rows, sinceRow{e.Severity, eventLine(e), e.URL, []store.Event{e}})
 			continue
 		}
+		rows[idx[pkg]].evs = append(rows[idx[pkg]].evs, e)
 		f := first[pkg]
 		rows[idx[pkg]].line = sDim.Render(f.At.Format("Jan02 15:04")) + " " + rankStyle(f.Severity).Render(pad("VULN", 7)) + " " +
 			fmt.Sprintf("%d vulns in %s, worst %s", count[pkg], pkg, strings.ToLower(sevName(f.Severity)))
@@ -549,7 +556,7 @@ func (m Model) sinceLines() []string {
 		lines = append(lines, "  "+r.line)
 	}
 	if len(rows) > 6 {
-		lines = append(lines, sDim.Render(fmt.Sprintf("  …and %d more changes (c)", len(rows)-6)))
+		lines = append(lines, sDim.Render(fmt.Sprintf("  …and %d more changes (press c)", len(rows)-6)))
 	}
 	return lines
 }
