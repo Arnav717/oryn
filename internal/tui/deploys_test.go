@@ -84,12 +84,53 @@ func TestDeployRowsScopedToProject(t *testing.T) {
 	}
 	proj := Model{snap: snap, screen: screenProject, tab: tabDeploys, scope: "/p/docs"}
 	_, rows, _ := proj.deployRows()
-	if len(rows) != 2 || rows[0].target != 1 {
-		t.Fatalf("project tab should list only /p/docs, got %+v", rows)
+	dep := 0
+	for _, r := range rows {
+		if r.add == "" {
+			dep++
+			if r.target != 1 {
+				t.Fatalf("project tab leaked another project's deployment: %+v", r)
+			}
+		}
+	}
+	if dep != 2 {
+		t.Fatalf("project tab should list the 2 /p/docs deployments, got %+v", rows)
 	}
 	empty := Model{snap: snap, screen: screenProject, tab: tabDeploys, scope: "/p/none"}
 	lines, rows, _ := empty.deployRows()
-	if len(rows) != 0 || !strings.Contains(strings.Join(lines, "\n"), "No Vercel") {
+	if len(rows) != len(deploy.Platforms) || !strings.Contains(strings.Join(lines, "\n"), "No deploy config found") {
 		t.Fatalf("empty project should explain itself: %v", lines)
+	}
+}
+
+func TestProjectWithoutConfigOffersLinking(t *testing.T) {
+	// No project anywhere has deploy config: the tab must still be actionable.
+	cfg := &config.Config{Ephemeral: true}
+	m := Model{cfg: cfg, snap: &app.Snapshot{}, screen: screenProject, tab: tabDeploys, scope: "/p/portfolio"}
+	lines, rows, _ := m.deployRows()
+	if len(rows) != len(deploy.Platforms) || rows[0].add != "vercel" {
+		t.Fatalf("want one link row per platform, got %+v\n%s", rows, strings.Join(lines, "\n"))
+	}
+	// Enter on a platform with no account connected must go to Accounts, not do nothing.
+	t.Setenv("VERCEL_TOKEN", "")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	deploy.SetCredsDir(t.TempDir())
+	t.Cleanup(func() { deploy.SetCredsDir("") })
+	next, _ := m.handleDeployKey(keyMsg("enter"))
+	if got := next.(Model); got.screen != screenAccounts {
+		t.Fatalf("enter should open Accounts, screen=%v flash=%q", got.screen, got.flash)
+	}
+	// With an account connected it opens the project picker and returns here after.
+	t.Setenv("VERCEL_TOKEN", "tok")
+	next, _ = m.handleDeployKey(keyMsg("l"))
+	got := next.(Model)
+	if got.screen != screenPicker || got.pickBack != screenProject || got.pickTarget.Link.Project != "/p/portfolio" {
+		t.Fatalf("l should open the picker for this project: screen=%v back=%v target=%+v", got.screen, got.pickBack, got.pickTarget.Link)
+	}
+	// The central screen with nothing detected explains itself.
+	central := Model{snap: &app.Snapshot{}, screen: screenDeploys}
+	if lines, rows, _ := central.deployRows(); len(rows) != 0 || len(lines) == 0 {
+		t.Errorf("central empty state: %v", lines)
 	}
 }
