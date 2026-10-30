@@ -1,4 +1,4 @@
-// Package store persists the event tape in SQLite.
+// Package store persists the activity timeline in SQLite.
 package store
 
 import (

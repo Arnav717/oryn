@@ -1,21 +1,26 @@
 # oryn
 
-A Bloomberg-style terminal for developers. `oryn` watches everything that
-affects your code (vulnerabilities in your dependencies, new releases,
-upstream outages) and puts it on one keyboard-driven screen.
+A terminal hub for your projects. `oryn` puts what you'd otherwise check across
+a dozen tabs on one keyboard-driven screen: what needs you, what's deployed,
+what's happening on GitHub, and whether anything you depend on broke. Deploy
+and clean up from the same place.
 
-Local-first: no account, no server. Your code never leaves your machine; only
-package names and versions are sent to public APIs (OSV, npm, PyPI, Go proxy).
+Local-first: no account, no server. Your code never leaves your machine. oryn
+talks directly to the services you connect, and sends only package names and
+versions to public APIs (OSV, npm, PyPI, Go proxy).
 
 ```
- ORYN  640 pkgs · 130 vulns (8 crit, 42 high) · 35 outdated · 1 upstream issue(s)
-╭ 1 PORTFOLIO ──────────────────────────╮╭ 2 VULNS ─────────────────────────────╮
-│ ↳ golang.org/x/crypto  v0.32.0  -  ▲37 ││ CRIT golang.org/x/crypto  CVE-2026-… │
-│   vite                 6.4.1  8.3.5 ▲26 ││ CRIT protobufjs@6.11.5    CVE-2026-… │
-╰────────────────────────────────────────╯╰──────────────────────────────────────╯
-╭ 3 UPSTREAM ─────────────╮╭ 4 TAPE ────────────────────────────────────────────╮
-│ ● Cloudflare  Partial…  ││ Oct29 15:29 STATUS  Cloudflare: Partial System Outage│
-╰─────────────────────────╯╰────────────────────────────────────────────────────╯
+ ORYN   1 Home 4  2 Projects  3 Agents  4 Deploys  5 GitHub 4  6 Health 9  7 Activity
+╭──────────────────────────────────────╮╭──────────────────────────────────────╮
+│NEEDS YOU  4                          ││AGENTS                                │
+│▸ devdoq    ✗ CI is failing on main   ││  Not built yet.                      │
+│            ● 4 PRs waiting for review││                                      │
+╰──────────────────────────────────────╯╰──────────────────────────────────────╯
+╭──────────────────────────────────────╮╭──────────────────────────────────────╮
+│DEPLOYS  2 live                       ││GITHUB  4 to review                   │
+│  ● portfolio  vercel      ready  2h  ││  - devdoq/devdoq-workers#28  Observa…│
+╰──────────────────────────────────────╯╰──────────────────────────────────────╯
+ Health: 250 vulns (9 crit, 83 high) · 80 outdated · 1 upstream issue   press 6
 ```
 
 ## Install
@@ -52,7 +57,7 @@ tabs from any screen, and `esc` goes back.
 | `4` | Deploys  | Every deployment on every platform                          |
 | `5` | GitHub   | Your inbox: PRs to review, your own PRs                     |
 | `6` | Health   | Dependencies, vulnerabilities, outdated packages, upstream status for all projects |
-| `7` | Activity | What changed since you last looked                          |
+| `7` | Activity | Timeline of everything: what's new since you last looked, then earlier events |
 
 Everywhere: `j/k` move · `r` refresh · `?` help · `q` quit.
 
@@ -63,13 +68,16 @@ since your last visit. Vulnerabilities you already know about stay on Health.
 Windows stack on a narrow terminal, and a very short one shows only the focused
 window.
 
+On Activity: `f` filters (all, deploys, github, health), `e` expands
+vulnerabilities folded by package, `enter` opens the event.
+
 On Health: `tab` switch pane · `enter` open package · `/` search (`lod`, `chi`;
 `tab` completes, `enter` opens).
 
 ### Projects are containers
 
 Opening a project gives you its own tabs (`[` and `]` switch): **Overview**,
-**Deploys**, **GitHub** and **Health**. It opens on Overview: what needs you
+**Deploys**, **GitHub**, **Health** and **Activity**. It opens on Overview: what needs you
 here, where it's live, GitHub state, health and recent commits. `enter` opens
 the detail for a row, `p` deploys, `D` and `g` jump to Deploys and GitHub. The
 GitHub tab is read from the folder's git remote (`origin` first); no setup needed. It has eight sections
@@ -120,13 +128,13 @@ Run it at login with the systemd unit in `contrib/oryn.service`.
 
 | Pane      | Source                                             |
 |-----------|----------------------------------------------------|
-| Portfolio | `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.mod`, `Cargo.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt` |
+| Packages  | `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.mod`, `Cargo.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt` |
 | Vulns     | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI, RustSec advisories) |
 | Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
 | Upstream  | statuspage `/api/v2/status.json` endpoints: your configured services plus vendors detected in your lockfiles (Sentry, Twilio, MongoDB, ...). Turn the detected ones off with `stack_status = false` |
 | GitHub    | GraphQL + REST API: review requests, your PRs, and per-repo PRs, issues, Actions, commits, people, releases, Dependabot alerts |
-| Deploys   | Vercel, Netlify and Cloudflare Pages: detected from `vercel.json`, `.vercel/`, `netlify.toml`, `wrangler.*`; connect an account in the TUI (`A`: paste a token, oryn verifies it before saving), or use `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` / `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, or the platform CLI login. Pick a project for a folder with enter on the Deploys tab, or create a brand-new one from the same picker (`+ Create a new project`) for a first deploy. Press `p` to deploy a linked project: oryn shows the exact platform-CLI command (vercel, netlify or wrangler) and runs it only after you confirm. Links are kept in your oryn config, never written into the project. Failed deploys land on the tape |
-| Tape      | every new vuln, release and status change, stored in SQLite |
+| Deploys   | Vercel, Netlify and Cloudflare Pages: detected from `vercel.json`, `.vercel/`, `netlify.toml`, `wrangler.*`; connect an account in the TUI (`A`: paste a token, oryn verifies it before saving), or use `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` / `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, or the platform CLI login. Pick a project for a folder with enter on the Deploys tab, or create a brand-new one from the same picker (`+ Create a new project`) for a first deploy. Press `p` to deploy a linked project: oryn shows the exact platform-CLI command (vercel, netlify or wrangler) and runs it only after you confirm. Links are kept in your oryn config, never written into the project. Failed deploys land on Activity |
+| Activity  | every new vuln, release, status change, failed deploy and GitHub event, stored in SQLite |
 
 Direct vs. transitive comes from the lockfile where it records it (npm, pnpm,
 Cargo, uv) and from the sibling `package.json` / `pyproject.toml` otherwise
@@ -145,14 +153,15 @@ internal/notify/   desktop notifications
 internal/config/   config loading
 internal/detect/   lockfile parsers
 internal/source/   OSV, registries, status pages
-internal/store/    SQLite event tape
+internal/store/    SQLite activity timeline
 internal/app/      refresh: detect → sources → events
 internal/tui/      Bubble Tea UI
 ```
 
 ## Roadmap
 
-- v0.6: upgrade desk (outdated deps ranked by risk), opt-in AI changelog impact analysis
-- v0.7: deploys (GitHub Deployments, then Vercel, Netlify, Render)
-- more per-project tabs: deploys, branches, discussions, code scanning
-- later: custom layouts, exec-based custom sources/panes, team sync
+- Agents: see every AI agent across your projects, then start, stop and review them
+- `oryn context` and an MCP server, so agents get a project's state without wandering
+- AI features: daily brief, explain a failed deploy or CI run, changelog impact
+- rollback and promote, live deploy logs
+- later: upgrade desk, custom layouts, exec-based custom sources, team sync

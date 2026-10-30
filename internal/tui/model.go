@@ -25,14 +25,13 @@ import (
 type paneID int
 
 const (
-	pPortfolio paneID = iota
+	pPackages paneID = iota
 	pVulns
 	pStatus
-	pTape
 	numPanes
 )
 
-var paneTitles = [numPanes]string{"PORTFOLIO", "VULNS", "UPSTREAM", "TAPE"}
+var paneTitles = [numPanes]string{"PACKAGES", "VULNS", "UPSTREAM"}
 
 // pkgInfo aggregates one package across versions and projects.
 type pkgInfo struct {
@@ -69,7 +68,7 @@ const (
 	screenProject
 	screenAgents
 	screenHealth
-	screenChanges
+	screenActivity
 	screenDeploys
 	screenAccounts
 	screenPicker
@@ -88,9 +87,8 @@ type Model struct {
 
 	snap     *app.Snapshot
 	pkgs     map[string]*pkgInfo
-	pkgOrder []string // portfolio rows: direct deps + vulnerable transitive ones
+	pkgOrder []string // package rows: direct deps + vulnerable transitive ones
 	vulns    []source.Vuln
-	events   []store.Event // tape rows, limited to scope
 
 	screen screen
 	scope  string // project path shown on the project screen; "" = all projects
@@ -98,8 +96,9 @@ type Model struct {
 	stats map[string]projStat // by project path
 	total projStat
 
-	chCursor, chOffset int // changes screen
+	chCursor, chOffset int // activity timeline
 	chExpand           bool
+	chFilter           int // index into activityFilters
 	dpCursor, dpOffset int // deploys screen
 
 	acctCursor int // accounts screen
@@ -168,7 +167,7 @@ type Model struct {
 func New(cfg *config.Config, st *store.Store) Model {
 	in := textinput.New()
 	in.Prompt = sAccent.Render("> ")
-	in.Placeholder = "type a package · v vulns · s status · t tape · h home · r refresh · ? help"
+	in.Placeholder = "type a package · v vulns · s status · t activity · h home · r refresh · ? help"
 
 	path := textinput.New()
 	path.Prompt = sAccent.Render("add project > ")
@@ -243,6 +242,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.clampAll()
 		m.ghClamp()
 		m.repoClamp()
+		m.chClamp()
 		m.flash = "updated " + m.snap.At.Format("15:04:05")
 		if m.keepFlash != "" {
 			m.flash = m.keepFlash + "  ·  " + m.flash
@@ -380,6 +380,8 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.handleDeployKey(k)
 		case tabGitHub:
 			return m.handleRepoKey(k)
+		case tabActivity:
+			return m.handleActivityKey(k)
 		}
 		return m.handlePaneKey(k)
 	}
@@ -498,13 +500,6 @@ func (m *Model) index() {
 		}
 		return a.Name < b.Name
 	})
-
-	m.events = m.events[:0]
-	for _, e := range m.snap.Events {
-		if _, ok := m.pkgs[e.Entity]; ok || e.Kind == "status" || m.scope == "" {
-			m.events = append(m.events, e)
-		}
-	}
 }
 
 func (m *Model) rowCount(p paneID) int {
@@ -512,14 +507,12 @@ func (m *Model) rowCount(p paneID) int {
 		return 0
 	}
 	switch p {
-	case pPortfolio:
+	case pPackages:
 		return len(m.pkgOrder)
 	case pVulns:
 		return len(m.vulns)
 	case pStatus:
 		return len(m.snap.Status)
-	case pTape:
-		return len(m.events)
 	}
 	return 0
 }
@@ -555,15 +548,10 @@ func (m *Model) selectedPkg() string {
 	}
 	i := m.cursor[m.focus]
 	switch m.focus {
-	case pPortfolio:
+	case pPackages:
 		return m.pkgOrder[i]
 	case pVulns:
 		return source.PkgKey(m.vulns[i].Ecosystem, m.vulns[i].Package)
-	case pTape:
-		e := m.events[i]
-		if _, ok := m.pkgs[e.Entity]; ok {
-			return e.Entity
-		}
 	}
 	return ""
 }

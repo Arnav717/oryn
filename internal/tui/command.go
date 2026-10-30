@@ -37,10 +37,17 @@ var commands = map[string]func(m *Model) tea.Cmd{
 		}
 		return nil
 	},
-	"p": func(m *Model) tea.Cmd { m.focus = pPortfolio; return nil },
-	"v": func(m *Model) tea.Cmd { m.focus = pVulns; return nil },
-	"s": func(m *Model) tea.Cmd { m.focus = pStatus; return nil },
-	"t": func(m *Model) tea.Cmd { m.focus = pTape; return nil },
+	"p": func(m *Model) tea.Cmd { m.showPane(pPackages); return nil },
+	"v": func(m *Model) tea.Cmd { m.showPane(pVulns); return nil },
+	"s": func(m *Model) tea.Cmd { m.showPane(pStatus); return nil },
+	"t": func(m *Model) tea.Cmd {
+		if m.tabBarVisible() {
+			m.setTab(tabActivity)
+		} else {
+			m.openSection(secActivity)
+		}
+		return nil
+	},
 }
 
 var aliases = map[string]string{
@@ -50,11 +57,21 @@ var aliases = map[string]string{
 	"home":    "h",
 	"gh":      "g", "github": "g",
 	"deps": "d", "dependencies": "d",
-	"port": "p", "portfolio": "p",
+	"pkg": "p", "pkgs": "p", "packages": "p",
 	"c": "v", "cve": "v", "vuln": "v", "vulns": "v",
 	"status": "s", "up": "s",
-	"tape": "t", "events": "t",
+	"activity": "t", "events": "t",
 	"deploy": "deploys", "dp": "deploys",
+}
+
+// showPane focuses a Health pane, inside the open project or across all.
+func (m *Model) showPane(p paneID) {
+	if m.tabBarVisible() {
+		m.setTab(tabHealth)
+	} else if m.screen != screenHealth {
+		m.openSection(secHealth)
+	}
+	m.focus = p
 }
 
 func (m Model) runCommand(input string) (tea.Model, tea.Cmd) {
@@ -80,7 +97,7 @@ func (m Model) runCommand(input string) (tea.Model, tea.Cmd) {
 }
 
 // matches fuzzy-ranks packages against q: exact, prefix, substring, then
-// subsequence; ties keep portfolio order (most at-risk first).
+// subsequence; ties keep package order (most at-risk first).
 func (m *Model) matches(q string, limit int) []string {
 	q = strings.ToLower(q)
 	if q == "" {

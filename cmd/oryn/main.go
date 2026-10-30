@@ -1,4 +1,4 @@
-// Command oryn is a terminal for everything that affects your code.
+// Command oryn is a terminal hub for your projects.
 package main
 
 import (
@@ -31,7 +31,7 @@ type multiFlag []string
 func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
 func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
 
-const usage = `oryn - a terminal for everything that affects your code
+const usage = `oryn - a terminal hub for your projects
 
 Usage:
   oryn              open the terminal (home screen)

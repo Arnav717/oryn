@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Arnav717/oryn/internal/browser"
 	"github.com/Arnav717/oryn/internal/config"
@@ -22,10 +23,11 @@ const (
 	tabDeploys
 	tabGitHub
 	tabHealth
+	tabActivity
 	numTabs
 )
 
-var tabNames = [numTabs]string{"Overview", "Deploys", "GitHub", "Health"}
+var tabNames = [numTabs]string{"Overview", "Deploys", "GitHub", "Health", "Activity"}
 
 // subView is a section of the GitHub tab.
 type subView int
@@ -70,6 +72,9 @@ func (m *Model) setTab(t projTab) {
 	if t == tabDeploys {
 		m.dpCursor, m.dpOffset = 0, 0
 		m.dpClamp()
+	}
+	if t == tabActivity {
+		m.resetActivity()
 	}
 	m.repoClamp()
 }
@@ -462,28 +467,41 @@ func (m Model) open(url string) Model {
 	return m
 }
 
-// tabBarView is the row of tabs under the header.
+// tabBarView is the project's row of tabs. When it doesn't fit it drops the
+// extras before it would clip a tab away.
 func (m Model) tabBarView() string {
-	var parts []string
-	for t := projTab(0); t < numTabs; t++ {
-		label := tabNames[t]
-		if t == tabGitHub {
-			if ref, ok := m.repoRefFor(m.scope); ok {
-				label += " " + sDim.Render(ref.String())
+	render := func(extras bool, sep string) string {
+		var parts []string
+		for t := projTab(0); t < numTabs; t++ {
+			name, extra := tabNames[t], ""
+			if t == tabGitHub {
+				if ref, ok := m.repoRefFor(m.scope); ok {
+					extra = ref.String()
+				}
 			}
-		}
-		if t == tabDeploys {
-			if names := m.deployPlatforms(m.scope); names != "" {
-				label += " " + sDim.Render(names)
+			if t == tabDeploys {
+				extra = m.deployPlatforms(m.scope)
 			}
+			if t == m.tab {
+				name = sAccent.Bold(true).Underline(true).Render(name)
+			} else {
+				name = sDim.Render(name)
+			}
+			if extras && extra != "" {
+				name += " " + sDim.Render(extra)
+			}
+			parts = append(parts, name)
 		}
-		if t == m.tab {
-			parts = append(parts, sAccent.Bold(true).Underline(true).Render(tabNames[t])+strings.TrimPrefix(label, tabNames[t]))
-		} else {
-			parts = append(parts, sDim.Render(tabNames[t])+strings.TrimPrefix(label, tabNames[t]))
-		}
+		return " " + strings.Join(parts, sDim.Render(sep))
 	}
-	return clip(" "+strings.Join(parts, sDim.Render("   │   "))+sDim.Render("      [ ] switch tab"), m.w)
+	const hint = "      [ ] switch tab"
+	if line := render(true, "   │   ") + sDim.Render(hint); lipgloss.Width(line) <= m.w {
+		return line
+	}
+	if line := render(false, "   │   "); lipgloss.Width(line) <= m.w {
+		return line
+	}
+	return clip(render(false, " │ "), m.w)
 }
 
 func orDash(s string) string {

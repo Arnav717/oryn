@@ -131,7 +131,7 @@ func (m *Model) openScope(scope string) {
 		m.screen = screenHealth
 	}
 	m.scope = scope
-	m.focus = pPortfolio
+	m.focus = pPackages
 	m.cursor = [numPanes]int{}
 	m.offset = [numPanes]int{}
 	m.detail = ""
@@ -365,7 +365,7 @@ func (m Model) upstreamPart() string {
 	return sOK.Render("upstream ok")
 }
 
-// sinceEvents lists tape events newer than the previous visit, most severe
+// sinceEvents lists events newer than the previous visit, most severe
 // first. Repo baselines are bookkeeping, not news.
 func (m Model) sinceEvents() []store.Event {
 	if m.snap == nil || m.since.IsZero() {
@@ -458,7 +458,7 @@ func shortAgo(d time.Duration) string {
 }
 
 // loadSince reads everything newer than the previous visit from the store,
-// since the in-memory tape only holds the latest 200 events.
+// since the snapshot only holds the latest 200 events.
 func (m *Model) loadSince() {
 	m.sinceLoaded = false
 	if m.st == nil || m.since.IsZero() {

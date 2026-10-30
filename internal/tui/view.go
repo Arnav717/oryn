@@ -1,34 +1,34 @@
 package tui
 
 import (
+	"cmp"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Arnav717/oryn/internal/detect"
+	"github.com/Arnav717/oryn/internal/source"
 	"github.com/Arnav717/oryn/internal/store"
 )
 
 type size struct{ w, h int }
 
 // paneSize returns the outer size (including border) of a pane.
-// Layout: portfolio | vulns on top, upstream | tape below.
+// Layout: packages | vulns on top, upstream across the bottom.
 func (m *Model) paneSize(p paneID) size {
 	gridH := m.h - m.chrome() // header, footer and (in a project) the tab bar
-	topH := gridH / 2
-	botH := gridH - topH
+	botH := max(5, gridH/3)
+	topH := gridH - botH
 	switch p {
-	case pPortfolio:
+	case pPackages:
 		return size{m.w / 2, topH}
 	case pVulns:
 		return size{m.w - m.w/2, topH}
-	case pStatus:
-		return size{m.w / 3, botH}
-	default:
-		return size{m.w - m.w/3, botH}
 	}
+	return size{m.w, botH}
 }
 
 // visible is the number of data rows a pane can show (border + 2 header lines).
@@ -66,17 +66,18 @@ func (m Model) body() string {
 		return m.fullBox(m.deployBody())
 	case m.screen == screenProject && m.tab == tabGitHub:
 		return m.repoBody()
+	case m.screen == screenProject && m.tab == tabActivity:
+		return m.activityBody()
 	case m.screen == screenProject:
 		return m.panes()
 	}
 	return sections[m.section()].body(m)
 }
 
-// panes is the four-pane Health view.
+// panes is the Health view.
 func (m Model) panes() string {
-	top := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pPortfolio), m.pane(pVulns))
-	bot := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pStatus), m.pane(pTape))
-	return lipgloss.JoinVertical(lipgloss.Left, top, bot)
+	top := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pPackages), m.pane(pVulns))
+	return lipgloss.JoinVertical(lipgloss.Left, top, m.pane(pStatus))
 }
 
 // context is the line under the tabs: where you are and the numbers for it.
@@ -93,7 +94,7 @@ func (m Model) context() string {
 		left = crumb("link project")
 	case screenDeploys:
 		left = m.deploySummary()
-	case screenChanges:
+	case screenActivity:
 		if !m.since.IsZero() {
 			left = sDim.Render(fmt.Sprintf("since %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(m.sinceEvents())))
 		}
@@ -237,6 +238,8 @@ func (m Model) projectHints() string {
 		return "j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · [ ] tabs · esc projects · r refresh · ? help · q quit"
 	case tabGitHub:
 		return "h/l section · j/k move · enter open · o repo · [ ] tabs · esc projects · r refresh · ? help · q quit"
+	case tabActivity:
+		return "j/k move · enter open in browser · f filter · e expand/fold · [ ] tabs · esc projects · r refresh · ? help · q quit"
 	}
 	return "tab pane · j/k move · enter open · / search · [ ] tabs · esc projects · r refresh · ? help · q quit"
 }
@@ -307,18 +310,16 @@ func (m Model) paneContent(p paneID, w int) (string, []string) {
 		return "", nil
 	}
 	switch p {
-	case pPortfolio:
-		return m.portfolioRows(w)
+	case pPackages:
+		return m.packageRows(w)
 	case pVulns:
 		return m.vulnRows(w)
-	case pStatus:
-		return m.statusRows(w)
 	default:
-		return m.tapeRows(w)
+		return m.statusRows(w)
 	}
 }
 
-func (m Model) portfolioRows(w int) (string, []string) {
+func (m Model) packageRows(w int) (string, []string) {
 	const verW, latW, vulW = 14, 14, 6
 	nameW := max(8, w-verW-latW-vulW)
 	sub := pad("PACKAGE", nameW) + pad("VERSION", verW) + pad("LATEST", latW) + "VULNS"
@@ -374,7 +375,12 @@ func (m Model) vulnRows(w int) (string, []string) {
 func (m Model) statusRows(w int) (string, []string) {
 	issues := 0
 	rows := make([]string, 0, len(m.snap.Status))
-	for _, s := range m.snap.Status {
+	// Problems first: this pane is short and an outage shouldn't scroll away.
+	status := slices.Clone(m.snap.Status)
+	slices.SortStableFunc(status, func(a, b source.Status) int {
+		return cmp.Compare(b2i(a.OK()), b2i(b.OK()))
+	})
+	for _, s := range status {
 		dot, desc := sOK.Render("●"), s.Description
 		switch {
 		case s.Err != nil:
@@ -395,12 +401,11 @@ func (m Model) statusRows(w int) (string, []string) {
 	return fmt.Sprintf("%d services · %d with issues", len(rows), issues), rows
 }
 
-func (m Model) tapeRows(w int) (string, []string) {
-	rows := make([]string, 0, len(m.events))
-	for _, e := range m.events {
-		rows = append(rows, eventLine(e))
+func b2i(b bool) int {
+	if b {
+		return 1
 	}
-	return "newest first · new vulns, releases and status changes", rows
+	return 0
 }
 
 func eventLine(e store.Event) string {
@@ -504,6 +509,10 @@ func helpLines() []string {
 		row("r", "refresh now"),
 		row("q", "quit"),
 		"",
+		sBold.Render("Activity"),
+		row("f", "filter: all, deploys, github, health"),
+		row("e", "expand / fold vulnerabilities grouped by package"),
+		"",
 		sBold.Render("Home"),
 		row("tab / shift+tab, h/l", "next / previous window"),
 		row("enter", "open the selected row"),
@@ -512,7 +521,7 @@ func helpLines() []string {
 		row("enter", "open the project"),
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
-		row("[  ]", "inside a project: previous / next tab (Overview, Deploys, GitHub, Health)"),
+		row("[  ]", "inside a project: previous / next tab (Overview, Deploys, GitHub, Health, Activity)"),
 		row("h/l", "GitHub tab: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
 		row("enter / o", "GitHub tab: open the selected row / the repo in your browser"),
 		row("p  D  g", "Overview tab: deploy · Deploys tab · GitHub tab"),
@@ -528,7 +537,7 @@ func helpLines() []string {
 		row("tab / shift+tab, h/l", "next / previous pane"),
 		row("enter", "open package"),
 		row("/ or :", "fuzzy-find a package, e.g. `lod`, `chi`; tab completes, enter opens"),
-		row("p  v  s  t", "search shortcuts: portfolio · vulns · status · tape"),
+		row("p  v  s  t", "search shortcuts: packages · vulns · status · activity"),
 		"",
 		sDim.Render("Config: ~/.config/oryn/config.toml · data: ~/.local/share/oryn/oryn.db"),
 	}

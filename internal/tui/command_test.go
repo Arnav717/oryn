@@ -26,7 +26,7 @@ func TestMatches(t *testing.T) {
 	cases := map[string]string{
 		"lodash": "npm/lodash",                   // exact beats prefix
 		"chi":    "npm/github.com/go-chi/chi/v5", // short name exact
-		"rea":    "npm/react",                    // prefix, portfolio order
+		"rea":    "npm/react",                    // prefix, package order
 		"rdom":   "npm/react-dom",                // subsequence
 	}
 	for q, want := range cases {

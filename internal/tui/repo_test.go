@@ -168,7 +168,7 @@ func TestAttention(t *testing.T) {
 func TestTabSwitching(t *testing.T) {
 	m := repoModel(fakeRepo(1, 1))
 	m.tab = tabOverview
-	for _, want := range []projTab{tabDeploys, tabGitHub, tabHealth, tabOverview} { // last one wraps
+	for _, want := range []projTab{tabDeploys, tabGitHub, tabHealth, tabActivity, tabOverview} { // last one wraps
 		m.switchTab(1)
 		if m.tab != want {
 			t.Errorf("] -> %d, want %d", m.tab, want)

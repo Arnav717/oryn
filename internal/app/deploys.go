@@ -58,7 +58,7 @@ func fetchDeploys(ctx context.Context, cfg *config.Config, snap *Snapshot) {
 }
 
 // deployFailureWindow bounds how old a failed deploy can be and still alert,
-// so connecting a platform doesn't dump months of history on the tape.
+// so connecting a platform doesn't dump months of history on the activity timeline.
 const deployFailureWindow = 48 * time.Hour
 
 func recordDeployEvents(snap *Snapshot, record func(store.Event) error) error {

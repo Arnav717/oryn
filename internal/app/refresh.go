@@ -241,7 +241,7 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-// recordEvents turns snapshot facts into tape events. The store dedupes, so
+// recordEvents turns snapshot facts into activity events. The store dedupes, so
 // only things not seen before show up as new.
 func recordEvents(st *store.Store, snap *Snapshot) error {
 	record := func(e store.Event) error {
@@ -342,7 +342,7 @@ func recordEvents(st *store.Store, snap *Snapshot) error {
 		if err != nil {
 			return err
 		}
-		// Record changes, but don't flood the tape with "operational" on first run.
+		// Record changes, but don't flood the timeline with "operational" on first run.
 		if title == last || (last == "" && s.OK()) {
 			continue
 		}

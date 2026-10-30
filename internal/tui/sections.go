@@ -134,11 +134,10 @@ func init() {
 		},
 		secActivity: {
 			title: "Activity",
-			hints: "j/k move · enter open in browser · e expand/fold · esc home · r refresh · ? help · q quit",
+			hints: "j/k move · enter open in browser · f filter · e expand/fold · esc home · r refresh · ? help · q quit",
 			open: func(m *Model) {
-				m.screen = screenChanges
-				m.chCursor, m.chOffset, m.chExpand = 0, 0, false
-				m.chClamp()
+				m.screen = screenActivity
+				m.resetActivity()
 			},
 			badge: func(m *Model) string {
 				if n := len(m.sinceEvents()); n > 0 {
@@ -146,11 +145,8 @@ func init() {
 				}
 				return ""
 			},
-			keys: Model.handleChangesKey,
-			body: func(m Model) string {
-				lines, _ := m.changesLines()
-				return m.fullBox(lines[min(m.chOffset, len(lines)):])
-			},
+			keys: Model.handleActivityKey,
+			body: Model.activityBody,
 		},
 	}
 }
@@ -169,7 +165,7 @@ func (m Model) section() sectionID {
 		return secGitHub
 	case screenHealth:
 		return secHealth
-	case screenChanges:
+	case screenActivity:
 		return secActivity
 	case screenAccounts:
 		return Model{screen: m.acctBack}.section()

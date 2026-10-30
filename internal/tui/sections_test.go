@@ -27,7 +27,7 @@ func press(t *testing.T, m Model, keys ...string) Model {
 }
 
 func TestNumberKeysSwitchTabsFromAnywhere(t *testing.T) {
-	want := []screen{screenHome, screenProjects, screenAgents, screenDeploys, screenGitHub, screenHealth, screenChanges}
+	want := []screen{screenHome, screenProjects, screenAgents, screenDeploys, screenGitHub, screenHealth, screenActivity}
 	start := map[string]Model{}
 	start["home"] = shellModel()
 	inProject := shellModel()
