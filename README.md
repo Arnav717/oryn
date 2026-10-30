@@ -24,6 +24,14 @@ package names and versions are sent to public APIs (OSV, npm, PyPI, Go proxy).
 make install              # → ~/.local/bin/oryn
 ```
 
+Tagged releases publish archives for Linux, macOS and Windows with a
+`SHA256SUMS` file and GitHub build-provenance attestations:
+
+```sh
+sha256sum -c --ignore-missing SHA256SUMS
+gh attestation verify oryn_<version>_linux_amd64.tar.gz --repo Arnav717/oryn
+```
+
 ## Use
 
 ```sh
@@ -104,7 +112,7 @@ Run it at login with the systemd unit in `contrib/oryn.service`.
 | Portfolio | `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.mod`, `Cargo.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt` |
 | Vulns     | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI, RustSec advisories) |
 | Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
-| Upstream  | statuspage `/api/v2/status.json` endpoints         |
+| Upstream  | statuspage `/api/v2/status.json` endpoints: your configured services plus vendors detected in your lockfiles (Sentry, Twilio, MongoDB, ...). Turn the detected ones off with `stack_status = false` |
 | GitHub    | GraphQL + REST API: review requests, your PRs, and per-repo PRs, issues, Actions, commits, people, releases, Dependabot alerts |
 | Tape      | every new vuln, release and status change, stored in SQLite |
 
@@ -132,7 +140,7 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- v0.5: LLM + cloud cost desk, upgrade desk (outdated deps ranked by risk)
-- v0.6: AI changelog impact analysis, daily brief
+- v0.6: upgrade desk (outdated deps ranked by risk), opt-in AI changelog impact analysis
+- v0.7: deploys (GitHub Deployments, then Vercel, Netlify, Render)
 - more per-project tabs: deploys, branches, discussions, code scanning
 - later: custom layouts, exec-based custom sources/panes, team sync
