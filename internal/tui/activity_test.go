@@ -25,7 +25,7 @@ func activityModel() Model {
 func TestActivitySplitsNewFromEarlier(t *testing.T) {
 	m := press(t, activityModel(), "7")
 	out := strings.Join(mustLines(m), "\n")
-	n, e := strings.Index(out, "NEW SINCE"), strings.Index(out, "EARLIER")
+	n, e := strings.Index(out, "New since"), strings.Index(out, "Earlier")
 	if n < 0 || e < n {
 		t.Fatalf("sections:\n%s", out)
 	}
@@ -42,7 +42,7 @@ func TestActivityWithNothingNewStillShowsTheTimeline(t *testing.T) {
 	m.since = m.now
 	m = press(t, m, "7")
 	out := strings.Join(mustLines(m), "\n")
-	if strings.Contains(out, "NEW SINCE") || !strings.Contains(out, "new PR on o/r") {
+	if strings.Contains(out, "New since") || !strings.Contains(out, "new PR on o/r") {
 		t.Errorf("timeline:\n%s", out)
 	}
 }

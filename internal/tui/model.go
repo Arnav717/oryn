@@ -31,7 +31,7 @@ const (
 	numPanes
 )
 
-var paneTitles = [numPanes]string{"PACKAGES", "VULNS", "UPSTREAM"}
+var paneTitles = [numPanes]string{"Packages", "Vulnerabilities", "Upstream"}
 
 // pkgInfo aggregates one package across versions and projects.
 type pkgInfo struct {
@@ -243,13 +243,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ghClamp()
 		m.repoClamp()
 		m.chClamp()
-		m.flash = "updated " + m.snap.At.Format("15:04:05")
-		if m.keepFlash != "" {
-			m.flash = m.keepFlash + "  ·  " + m.flash
-			m.keepFlash = ""
-		}
+		m.flash, m.keepFlash = m.keepFlash, ""
 		if n := len(m.snap.Warnings); n > 0 {
-			m.flash += fmt.Sprintf(" · %d warning(s): %s", n, m.snap.Warnings[0])
+			warn := fmt.Sprintf("%d warning(s): %s", n, m.snap.Warnings[0])
+			if m.flash != "" {
+				warn = m.flash + " · " + warn
+			}
+			m.flash = warn
 		}
 		if m.pendingScan {
 			return m, m.startRefresh()

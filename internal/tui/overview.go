@@ -13,13 +13,13 @@ import (
 // matters, each opening the tab with the detail.
 func (m Model) overviewRows() []winRow {
 	p := m.scope
-	label := func(s string) string { return sTitle.Render(pad(s, 8)) }
+	label := func(s string) string { return sDim.Render(pad(s, 8)) }
 	var rows []winRow
 
 	for i, it := range m.needsFor(p) {
 		head := pad("", 8)
 		if i == 0 {
-			head = label("NEEDS")
+			head = label("Needs")
 		}
 		rows = append(rows, winRow{head + it.render(), it.to})
 	}
@@ -33,43 +33,32 @@ func (m Model) overviewRows() []winRow {
 			}
 			head := pad("", 8)
 			if !shown {
-				head = label("LIVE")
+				head = label("Live")
 			}
 			shown = true
 			rows = append(rows, winRow{head + m.liveCell(t), deploys})
 		}
 	}
 	if !shown {
-		rows = append(rows, winRow{label("LIVE") + sDim.Render("not deployed yet, enter to link a platform"), deploys})
+		rows = append(rows, winRow{label("Live") + sDim.Render("not deployed yet, enter to link a platform"), deploys})
 	}
 
 	github := target{project: p, tab: tabGitHub, sub: svOverview}
 	if d, why := m.repoState(); d != nil {
-		rows = append(rows, winRow{label("GITHUB") + strings.Join([]string{
+		rows = append(rows, winRow{label("GitHub") + strings.Join([]string{
 			sBold.Render(orDash(d.DefaultBranch)) + " " + ciWord(d.DefaultCI),
 			fmt.Sprintf("%d PRs", d.OpenPRs),
 			fmt.Sprintf("%d issues", d.OpenIssues),
 		}, sDim.Render(" · ")), github})
 	} else if len(why) > 0 {
-		rows = append(rows, winRow{label("GITHUB") + why[0], github})
-	}
-
-	health := target{project: p, tab: tabHealth}
-	if st, ok := m.stats[p]; ok && m.snap != nil {
-		cell := vulnCell(st)
-		if st.Outdated > 0 {
-			cell += sDim.Render(fmt.Sprintf(" · %d outdated", st.Outdated))
-		}
-		rows = append(rows, winRow{label("HEALTH") + cell, health})
-	} else {
-		rows = append(rows, winRow{label("HEALTH") + sDim.Render("checking…"), health})
+		rows = append(rows, winRow{label("GitHub") + why[0], github})
 	}
 
 	if d := m.repoDataFor(p); d != nil {
 		for i, c := range d.Commits[:min(3, len(d.Commits))] {
 			head := pad("", 8)
 			if i == 0 {
-				head = label("RECENT")
+				head = label("Recent")
 			}
 			msg, _, _ := strings.Cut(c.Message, "\n")
 			rows = append(rows, winRow{head + msg + sDim.Render("  "+c.Author+", "+humanAge(c.At)), target{url: c.URL}})
@@ -82,11 +71,11 @@ func (m Model) overviewRows() []winRow {
 func (m Model) liveCell(t app.DeployTarget) string {
 	name := pad(t.Link.Platform, 12)
 	if note := targetNote(t); note != "" {
-		return sDim.Render(name + note)
+		return sDim.Render("· " + name + note)
 	}
 	d, ok := t.Latest("production")
 	if !ok {
-		return sDim.Render(name + "no deployments")
+		return sDim.Render("· " + name + "no deployments")
 	}
 	return deployDot(d.State) + " " + name + pad(d.State, 9) + orDefault(t.LiveURL, d.URL) + sDim.Render("  "+shortAgo(m.now.Sub(d.Created)))
 }

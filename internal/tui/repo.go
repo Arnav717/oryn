@@ -3,10 +3,10 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Arnav717/oryn/internal/browser"
 	"github.com/Arnav717/oryn/internal/config"
@@ -49,13 +49,17 @@ var subNames = [numSubs]string{"Overview", "PRs", "Issues", "Actions", "Commits"
 // tabBarVisible: tabs only make sense for a single project.
 func (m *Model) tabBarVisible() bool { return m.screen == screenProject && m.scope != "" }
 
-// chrome is the number of screen lines used outside the body (top tabs,
-// context line, footer and, inside a project, its tab row).
+// chrome is the number of screen lines used outside the body: tabs, footer,
+// and the optional context line and project tab row.
 func (m *Model) chrome() int {
-	if m.tabBarVisible() {
-		return 4
+	n := 2
+	if m.hasContext() {
+		n++
 	}
-	return 3
+	if m.tabBarVisible() {
+		n++
+	}
+	return n
 }
 
 func (m *Model) switchTab(delta int) {
@@ -247,38 +251,16 @@ func renderTable(cols []col, rows []listRow, width int) (string, []string) {
 	return sDim.Render(hdr.String()), out
 }
 
-func subCount(d *source.RepoData, s subView) string {
-	switch s {
-	case svPRs:
-		return fmt.Sprint(d.OpenPRs)
-	case svIssues:
-		return fmt.Sprint(d.OpenIssues)
-	case svPeople:
-		return fmt.Sprint(len(d.People))
-	case svReleases:
-		return fmt.Sprint(len(d.Releases))
-	case svAlerts:
-		if d.AlertsKnown {
-			return fmt.Sprint(d.AlertCount)
-		}
-	}
-	return ""
-}
-
-func (m Model) subNav(d *source.RepoData) string {
+func (m Model) subNav() string {
 	parts := make([]string, numSubs)
 	for s := subView(0); s < numSubs; s++ {
-		label := subNames[s]
-		if c := subCount(d, s); c != "" {
-			label += " " + c
-		}
 		if s == m.rsub {
-			parts[s] = sLogo.Render(label)
+			parts[s] = sTab.Render(subNames[s])
 		} else {
-			parts[s] = sDim.Render(" " + label + " ")
+			parts[s] = sDim.Render(subNames[s])
 		}
 	}
-	return strings.Join(parts, "")
+	return strings.Join(parts, "  ")
 }
 
 // repoVisible is how many table rows fit under the fixed top lines.
@@ -307,10 +289,10 @@ func (m *Model) repoClamp() {
 func (m Model) repoBody() string {
 	d, why := m.repoState()
 	if d == nil {
-		lines := append([]string{sTitle.Render("GITHUB"), ""}, why...)
+		lines := append([]string{sTitle.Render("GitHub"), ""}, why...)
 		return m.fullBox(lines)
 	}
-	lines := []string{m.subNav(d), ""}
+	lines := []string{m.subNav(), ""}
 	if m.rsub == svOverview {
 		return m.fullBox(append(lines, m.overviewLines(d)...))
 	}
@@ -385,7 +367,7 @@ func (m *Model) overviewLines(d *source.RepoData) []string {
 		lines = append(lines, "last run       "+runCell(r)+sDim.Render("  "+r.Workflow+" #"+fmt.Sprint(r.Number)+", "+humanAge(r.Created)+" ago"))
 	}
 
-	lines = append(lines, "", sTitle.Render("NEEDS ATTENTION"))
+	lines = append(lines, "", sTitle.Render("Needs attention"))
 	attn := m.attention(d)
 	if len(attn) == 0 {
 		lines = append(lines, "  "+sOK.Render("✓ nothing needs you right now"))
@@ -467,41 +449,17 @@ func (m Model) open(url string) Model {
 	return m
 }
 
-// tabBarView is the project's row of tabs. When it doesn't fit it drops the
-// extras before it would clip a tab away.
+// tabBarView is the project's name and its tabs.
 func (m Model) tabBarView() string {
-	render := func(extras bool, sep string) string {
-		var parts []string
-		for t := projTab(0); t < numTabs; t++ {
-			name, extra := tabNames[t], ""
-			if t == tabGitHub {
-				if ref, ok := m.repoRefFor(m.scope); ok {
-					extra = ref.String()
-				}
-			}
-			if t == tabDeploys {
-				extra = m.deployPlatforms(m.scope)
-			}
-			if t == m.tab {
-				name = sAccent.Bold(true).Underline(true).Render(name)
-			} else {
-				name = sDim.Render(name)
-			}
-			if extras && extra != "" {
-				name += " " + sDim.Render(extra)
-			}
-			parts = append(parts, name)
+	parts := make([]string, numTabs)
+	for t := projTab(0); t < numTabs; t++ {
+		if t == m.tab {
+			parts[t] = sTab.Render(tabNames[t])
+		} else {
+			parts[t] = sDim.Render(tabNames[t])
 		}
-		return " " + strings.Join(parts, sDim.Render(sep))
 	}
-	const hint = "      [ ] switch tab"
-	if line := render(true, "   │   ") + sDim.Render(hint); lipgloss.Width(line) <= m.w {
-		return line
-	}
-	if line := render(false, "   │   "); lipgloss.Width(line) <= m.w {
-		return line
-	}
-	return clip(render(false, " │ "), m.w)
+	return clip(" "+sBold.Render(filepath.Base(m.scope))+"   "+strings.Join(parts, "  "), m.w)
 }
 
 func orDash(s string) string {

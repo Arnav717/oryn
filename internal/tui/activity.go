@@ -84,7 +84,7 @@ func (m Model) activity() (lines []string, rows []sinceRow, rowLine []int) {
 		}
 	}
 
-	head := sTitle.Render("ACTIVITY") + sDim.Render("  "+activityFilters[m.chFilter].name)
+	head := sTitle.Render("Activity") + sDim.Render("  "+activityFilters[m.chFilter].name)
 	if !m.since.IsZero() {
 		head += sDim.Render(fmt.Sprintf(" · %d new", len(fresh)))
 	}
@@ -93,7 +93,7 @@ func (m Model) activity() (lines []string, rows []sinceRow, rowLine []int) {
 		if len(rs) == 0 {
 			return
 		}
-		lines = append(lines, "", sBold.Render(title))
+		lines = append(lines, "", sDim.Bold(true).Render(title))
 		for _, r := range rs {
 			marker := "  "
 			if len(rows) == m.chCursor {
@@ -104,8 +104,8 @@ func (m Model) activity() (lines []string, rows []sinceRow, rowLine []int) {
 			lines = append(lines, marker+r.line)
 		}
 	}
-	block("NEW SINCE YOU LAST LOOKED", build(fresh))
-	block("EARLIER", build(earlier))
+	block("New since you last looked", build(fresh))
+	block("Earlier", build(earlier))
 	if len(rows) == 0 {
 		lines = append(lines, "", sDim.Render("  Nothing here yet."))
 	}

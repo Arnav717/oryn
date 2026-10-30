@@ -40,15 +40,15 @@ func fakeRepo(prs, issues int) *source.RepoData {
 
 func TestChromeAndTabBar(t *testing.T) {
 	m := repoModel(fakeRepo(0, 0))
-	if !m.tabBarVisible() || m.chrome() != 4 {
+	if !m.tabBarVisible() || m.chrome() != 3 {
 		t.Errorf("project: tabBar=%v chrome=%d", m.tabBarVisible(), m.chrome())
 	}
 	m.scope = "" // All projects has no single repo, so no tabs
-	if m.tabBarVisible() || m.chrome() != 3 {
+	if m.tabBarVisible() || m.chrome() != 2 {
 		t.Errorf("all projects: tabBar=%v chrome=%d", m.tabBarVisible(), m.chrome())
 	}
 	m.screen = screenHome
-	if m.chrome() != 3 {
+	if m.chrome() != 2 {
 		t.Errorf("home chrome = %d", m.chrome())
 	}
 }

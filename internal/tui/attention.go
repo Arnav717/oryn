@@ -60,13 +60,13 @@ type attnItem struct {
 func (it attnItem) render() string {
 	switch {
 	case it.health:
-		return sBad.Render("▲ " + it.text)
+		return sBad.Render("▲") + " " + it.text
 	case it.sev == attnBad:
-		return sBad.Render("✗ " + it.text)
+		return sBad.Render("●") + " " + it.text
 	case it.sev == attnWarn:
-		return sWarn.Render("● " + it.text)
+		return sWarn.Render("●") + " " + it.text
 	}
-	return sAccent.Render("● " + it.text)
+	return sAccent.Render("●") + " " + it.text
 }
 
 // needsYou collects every section's items, worst first, newest first within a
@@ -155,17 +155,12 @@ func githubAttention(m *Model) []attnItem {
 	return out
 }
 
-// healthAttention only speaks up for news. Known vulnerabilities live on the
-// Health tab; a queue that never empties teaches you to ignore it.
+// healthAttention only speaks up for news you can act on. Known
+// vulnerabilities and upstream outages live on the Health tab; a queue that
+// never empties teaches you to ignore it.
 func healthAttention(m *Model) []attnItem {
 	if m.snap == nil {
 		return nil
-	}
-	var out []attnItem
-	for _, s := range m.snap.Status {
-		if s.Err == nil && (s.Indicator == "major" || s.Indicator == "critical") {
-			out = append(out, attnItem{sev: attnWarn, text: s.Service + ": " + s.Description, to: target{section: secHealth}})
-		}
 	}
 	crit := 0
 	for _, e := range m.sinceEvents() {
@@ -173,10 +168,10 @@ func healthAttention(m *Model) []attnItem {
 			crit++
 		}
 	}
-	if crit > 0 {
-		out = append(out, attnItem{sev: attnBad, text: fmt.Sprintf("%d new critical vulnerabilities", crit), to: target{section: secHealth}})
+	if crit == 0 {
+		return nil
 	}
-	return out
+	return []attnItem{{sev: attnBad, text: fmt.Sprintf("%d new critical vulnerabilities", crit), to: target{section: secHealth}}}
 }
 
 // repoAttention lists what on this repo is waiting for the signed-in user.

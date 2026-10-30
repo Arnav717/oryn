@@ -78,67 +78,72 @@ func TestNewCriticalReachesTheQueue(t *testing.T) {
 	}
 }
 
-func TestUpstreamOutageReachesTheQueue(t *testing.T) {
+func TestUpstreamOutageStaysOnHealth(t *testing.T) {
 	m := busyModel()
-	m.snap.Status = []source.Status{
-		{Service: "Cloudflare", Indicator: "major", Description: "Major Outage"},
-		{Service: "npm", Indicator: "minor", Description: "Slow"},
-	}
-	got := itemTexts(m.needsYou())
-	if !strings.Contains(got, "Cloudflare") || strings.Contains(got, "npm") {
+	m.snap.Status = []source.Status{{Service: "Cloudflare", Indicator: "major", Description: "Major Outage"}}
+	if got := itemTexts(m.needsYou()); strings.Contains(got, "Cloudflare") {
 		t.Errorf("queue:\n%s", got)
 	}
 }
 
-func TestHomeRendersWindowsNotVulns(t *testing.T) {
+func TestHomeIsMinimal(t *testing.T) {
 	m := busyModel()
+	m.snap.Events = []store.Event{{Key: "o", Kind: "pr", Entity: "o/r", Title: "x", At: m.now}}
 	out := m.View()
-	for _, want := range []string{"NEEDS YOU", "AGENTS", "DEPLOYS", "GITHUB", "Health:", "press 6"} {
+	for _, want := range []string{"Needs you", "Deploys", "GitHub"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "lodash") || strings.Contains(out, "CVE-1") {
-		t.Errorf("home lists individual vulnerabilities:\n%s", out)
+	for _, not := range []string{"lodash", "CVE-1", "vulns", "outdated", "project(s)", "Not built", "updated"} {
+		if strings.Contains(out, not) {
+			t.Errorf("home should not show %q:\n%s", not, out)
+		}
+	}
+	first, _, _ := strings.Cut(out, "\n")
+	if strings.ContainsAny(first, "0123456789") && !strings.Contains(first, ":") {
+		t.Errorf("tab bar carries counts: %q", first)
+	}
+	for _, s := range sections {
+		if !strings.Contains(first, s.title) {
+			t.Errorf("tab %s missing from %q", s.title, first)
+		}
 	}
 }
 
 func TestHomeLayoutFitsSize(t *testing.T) {
 	m := busyModel()
 	m.w, m.h = 120, 30
-	if out := m.homeBody(); !strings.Contains(out, "GITHUB") || !strings.Contains(out, "NEEDS YOU") {
+	if out := m.homeBody(); !strings.Contains(out, "GitHub") || !strings.Contains(out, "Needs you") {
 		t.Errorf("wide layout:\n%s", out)
 	}
 	m.w, m.h = 80, 40 // stacks
-	if out := m.homeBody(); !strings.Contains(out, "GITHUB") || !strings.Contains(out, "NEEDS YOU") {
+	if out := m.homeBody(); !strings.Contains(out, "GitHub") || !strings.Contains(out, "Needs you") {
 		t.Errorf("stacked layout:\n%s", out)
 	}
 	m.w, m.h = 80, 14 // too short to stack: only the focused window
 	m.win = winDeploys
 	out := m.homeBody()
-	if !strings.Contains(out, "DEPLOYS") || strings.Contains(out, "NEEDS YOU") {
+	if !strings.Contains(out, "Deploys") || strings.Contains(out, "Needs you") {
 		t.Errorf("short layout:\n%s", out)
 	}
 }
 
 func TestWindowKeysAndEnter(t *testing.T) {
 	m := busyModel()
-	if got := press(t, m, "tab", "tab"); got.win != winDeploys {
+	if got := press(t, m, "tab", "tab"); got.win != winGitHub {
 		t.Errorf("tab,tab -> window %d", got.win)
 	}
 	if got := press(t, m, "shift+tab"); got.win != winGitHub {
 		t.Errorf("shift+tab wraps -> window %d", got.win)
 	}
-	if got := press(t, m, "tab", "enter"); got.screen != screenAgents {
-		t.Errorf("enter on Agents -> screen %d", got.screen)
-	}
-	got := press(t, m, "tab", "tab", "enter")
+	got := press(t, m, "tab", "enter")
 	if got.screen != screenProject || got.scope != "/code/b" || got.tab != tabDeploys {
 		t.Errorf("enter on deploy row -> screen %d scope %q tab %d", got.screen, got.scope, got.tab)
 	}
 
 	// The first queue row is a failure; enter lands on the tab that explains it.
-	rows, _ := needsRows(&m)
+	rows := needsRows(&m)
 	got = press(t, m, "enter")
 	if rows[0].to.project == "" || got.scope != rows[0].to.project {
 		t.Errorf("enter on queue row: %+v -> scope %q", rows[0].to, got.scope)
@@ -174,7 +179,7 @@ func TestProjectOpensOnOverview(t *testing.T) {
 		t.Fatalf("project opened on tab %d", m.tab)
 	}
 	out := m.View()
-	for _, want := range []string{"NEEDS", "CI is failing on main", "LIVE", "not deployed yet", "GITHUB", "HEALTH"} {
+	for _, want := range []string{"Needs", "CI is failing on main", "Live", "not deployed yet", "GitHub"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}

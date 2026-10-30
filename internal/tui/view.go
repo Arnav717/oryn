@@ -41,7 +41,10 @@ func (m Model) View() string {
 	if m.w < 60 || m.h < 14 {
 		return "terminal too small (need 60x14)"
 	}
-	rows := []string{m.tabsLine(), m.context()}
+	rows := []string{m.tabsLine()}
+	if m.hasContext() {
+		rows = append(rows, m.context())
+	}
 	if m.tabBarVisible() && !m.showHelp {
 		rows = append(rows, m.tabBarView())
 	}
@@ -80,9 +83,18 @@ func (m Model) panes() string {
 	return lipgloss.JoinVertical(lipgloss.Left, top, m.pane(pStatus))
 }
 
-// context is the line under the tabs: where you are and the numbers for it.
+// hasContext: most screens say enough on their own. Sub-screens need a
+// breadcrumb, and Health is where its numbers belong.
+func (m Model) hasContext() bool {
+	switch m.screen {
+	case screenDeployRun, screenAccounts, screenPicker, screenHealth:
+		return true
+	}
+	return m.screen == screenProject && m.tab == tabHealth
+}
+
+// context is the optional line under the tabs.
 func (m Model) context() string {
-	sep := sDim.Render(" · ")
 	crumb := func(s string) string { return sDim.Render("›") + " " + sBold.Render(s) }
 	var left string
 	switch m.screen {
@@ -92,58 +104,30 @@ func (m Model) context() string {
 		left = crumb("accounts")
 	case screenPicker:
 		left = crumb("link project")
-	case screenDeploys:
-		left = m.deploySummary()
-	case screenActivity:
-		if !m.since.IsZero() {
-			left = sDim.Render(fmt.Sprintf("since %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(m.sinceEvents())))
-		}
-	case screenGitHub:
-		if review, mine, failing := m.ghSummary(); m.snap != nil && m.snap.GitHub != nil {
-			parts := []string{fmt.Sprintf("%d to review", review), fmt.Sprintf("%d open", mine)}
-			if failing > 0 {
-				parts = append(parts, sBad.Render(fmt.Sprintf("%d failing CI", failing)))
-			}
-			left = strings.Join(parts, sep)
-		}
-	case screenHome, screenProjects:
-		left = sDim.Render(fmt.Sprintf("%d project(s)", len(m.cfg.Projects)))
 	case screenHealth, screenProject:
-		name := "all projects"
-		if m.scope != "" {
-			name = filepath.Base(m.scope)
+		if m.snap == nil {
+			break
 		}
-		left = crumb(name)
-		if d := m.repoDataFor(m.scope); m.tabBarVisible() && m.tab == tabGitHub && d != nil {
-			left += "  " + strings.Join([]string{
-				fmt.Sprintf("★ %d", d.Stars),
-				fmt.Sprintf("%d PRs", d.OpenPRs),
-				fmt.Sprintf("%d issues", d.OpenIssues),
-				ciWord(d.DefaultCI),
-				alertPhrase(d),
-			}, sep)
-		} else if m.snap != nil && (m.screen == screenHealth || m.tab == tabHealth) {
-			var crit, high, outdated int
-			for _, v := range m.vulns {
-				switch v.Severity {
-				case "CRITICAL":
-					crit++
-				case "HIGH":
-					high++
-				}
+		var crit, high, outdated int
+		for _, v := range m.vulns {
+			switch v.Severity {
+			case "CRITICAL":
+				crit++
+			case "HIGH":
+				high++
 			}
-			for _, p := range m.pkgs {
-				if p.Direct && p.outdated() {
-					outdated++
-				}
-			}
-			left += "  " + strings.Join([]string{
-				fmt.Sprintf("%d pkgs", len(m.pkgs)),
-				vulnSummary(len(m.vulns), crit, high),
-				sWarn.Render(fmt.Sprintf("%d outdated", outdated)),
-				m.upstreamPart(),
-			}, sep)
 		}
+		for _, p := range m.pkgs {
+			if p.Direct && p.outdated() {
+				outdated++
+			}
+		}
+		left = strings.Join([]string{
+			sDim.Render(fmt.Sprintf("%d packages", len(m.pkgs))),
+			vulnSummary(len(m.vulns), crit, high),
+			sDim.Render(fmt.Sprintf("%d outdated", outdated)),
+			m.upstreamPart(),
+		}, sDim.Render(" · "))
 	}
 	return clip(" "+left, m.w)
 }
@@ -225,23 +209,21 @@ func (m Model) footer() string {
 		hints = m.projectHints()
 	}
 	if m.flash == "" {
-		return clip(sDim.Render(hints), m.w)
+		return clip(" "+sDim.Render(hints), m.w)
 	}
-	return clip(sAccent.Render(m.flash)+sDim.Render("  │  "+hints), m.w)
+	return clip(" "+sAccent.Render(m.flash)+sDim.Render("   "+hints), m.w)
 }
 
 func (m Model) projectHints() string {
 	switch m.tab {
-	case tabOverview:
-		return "j/k move · enter open · p deploy · D deploys · g github · [ ] tabs · esc projects · r refresh · ? help · q quit"
-	case tabDeploys:
-		return "j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · [ ] tabs · esc projects · r refresh · ? help · q quit"
+	case tabOverview, tabDeploys:
+		return "enter open · p deploy · [ ] tabs · ? help"
 	case tabGitHub:
-		return "h/l section · j/k move · enter open · o repo · [ ] tabs · esc projects · r refresh · ? help · q quit"
+		return "h/l section · enter open · [ ] tabs · ? help"
 	case tabActivity:
-		return "j/k move · enter open in browser · f filter · e expand/fold · [ ] tabs · esc projects · r refresh · ? help · q quit"
+		return "f filter · enter open · [ ] tabs · ? help"
 	}
-	return "tab pane · j/k move · enter open · / search · [ ] tabs · esc projects · r refresh · ? help · q quit"
+	return "tab pane · / search · [ ] tabs · ? help"
 }
 
 // suggestions lists live package matches for the command input; the first is
@@ -281,7 +263,7 @@ func (m Model) pane(p paneID) string {
 
 	sub, rows := m.paneContent(p, rowW)
 	lines := []string{
-		sTitle.Render(paneTitles[p]) + sDim.Render(fmt.Sprintf("  %d", m.rowCount(p))),
+		m.paneTitle(p),
 		"  " + sDim.Render(clip(sub, rowW)),
 	}
 	if m.snap == nil {
@@ -301,7 +283,14 @@ func (m Model) pane(p paneID) string {
 	if len(lines) > ch {
 		lines = lines[:ch]
 	}
-	return paneBox(p == m.focus).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return box().Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+}
+
+func (m Model) paneTitle(p paneID) string {
+	if p == m.focus {
+		return sAccent.Bold(true).Render(paneTitles[p])
+	}
+	return sDim.Bold(true).Render(paneTitles[p])
 }
 
 // paneContent returns a column/summary line and the rows.
@@ -431,7 +420,7 @@ func (m Model) fullBox(lines []string) string {
 	for i := range lines {
 		lines[i] = clip(lines[i], cw)
 	}
-	return paneBox(true).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return box().Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
 }
 
 func (m Model) detailLines() []string {
@@ -499,10 +488,10 @@ func registryURL(eco, name string) string {
 func helpLines() []string {
 	row := func(k, d string) string { return "  " + sAccent.Render(pad(k, 22)) + d }
 	return []string{
-		sTitle.Render("ORYN HELP") + sDim.Render("   any key to close"),
+		sTitle.Render("Help") + sDim.Render("   any key to close"),
 		"",
 		sBold.Render("Everywhere"),
-		row("1-7", "Home, Projects, Agents, Deploys, GitHub, Health, Activity"),
+		row("1-7", "switch tab: Home, Projects, Agents, Deploys, GitHub, Health, Activity"),
 		row("j/k, ↑/↓", "move"),
 		row("g / G, pgup / pgdn", "top / bottom, page"),
 		row("esc", "back"),

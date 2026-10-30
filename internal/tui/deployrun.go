@@ -203,7 +203,7 @@ func (m Model) runLines() []string {
 	}
 	lines := []string{status, sDim.Render(r.display)}
 	if r.done && r.err == nil && r.url != "" {
-		lines = append(lines, "", sTitle.Render("LIVE AT ")+r.url+sDim.Render("   (o to open)"))
+		lines = append(lines, "", sTitle.Render("Live at ")+r.url+sDim.Render("   (o to open)"))
 	}
 	lines = append(lines, "", sDim.Render("output"))
 	room := max(3, m.h-m.chrome()-2-len(lines)-1)

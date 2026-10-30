@@ -24,13 +24,13 @@ func TestDeployLines(t *testing.T) {
 			}},
 		{Link: deploy.Link{Platform: "netlify", Project: "/p/docs", Marker: "netlify.toml"}},
 	}}}
-	rows, _ := deployWinRows(&m)
+	rows := deployWinRows(&m)
 	var texts []string
 	for _, r := range rows {
 		texts = append(texts, r.text)
 	}
 	out := strings.Join(texts, "\n")
-	for _, want := range []string{"web", "error", "not linked"} {
+	for _, want := range []string{"web", "vercel"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}

@@ -85,7 +85,7 @@ func TestRunFinishesWithResult(t *testing.T) {
 		t.Error("result must survive the refresh")
 	}
 	out := strings.Join(got.runLines(), "\n")
-	if !strings.Contains(out, "deployed") || !strings.Contains(out, "LIVE AT") || !strings.Contains(out, "https://web.vercel.app") {
+	if !strings.Contains(out, "deployed") || !strings.Contains(out, "Live at") || !strings.Contains(out, "https://web.vercel.app") {
 		t.Errorf("screen:\n%s", out)
 	}
 

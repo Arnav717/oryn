@@ -37,8 +37,8 @@ func (m *Model) ghSections() []ghSection {
 	mine := append([]source.PR(nil), gh.Mine...)
 	sort.SliceStable(mine, func(i, j int) bool { return attention(mine[i]) < attention(mine[j]) })
 	return []ghSection{
-		{"REVIEW REQUESTED", gh.Review},
-		{"MY PULL REQUESTS", mine},
+		{"Review requested", gh.Review},
+		{"Your pull requests", mine},
 	}
 }
 
@@ -125,32 +125,25 @@ func (m *Model) ghLines() (lines []string, cursorLine, cursorTop int) {
 		return []string{sDim.Render("loading…")}, 0, 0
 	case errors.Is(m.snap.GitHubErr, source.ErrNoToken):
 		return []string{
-			sTitle.Render("GITHUB") + sDim.Render("  not connected"),
+			sTitle.Render("GitHub") + sDim.Render("  not connected"),
 			"",
 			"  oryn reads your PRs through the GitHub CLI login or a token in the environment.",
 			"  Run " + sAccent.Render("gh auth login") + " (or set GH_TOKEN), then press " + sAccent.Render("r") + ".",
 			"  Nothing is stored by oryn; the token only goes to api.github.com.",
 		}, 0, 0
 	case m.snap.GitHubErr != nil:
-		return []string{sTitle.Render("GITHUB"), "", "  " + sBad.Render(m.snap.GitHubErr.Error())}, 0, 0
+		return []string{sTitle.Render("GitHub"), "", "  " + sBad.Render(m.snap.GitHubErr.Error())}, 0, 0
 	case m.snap.GitHub == nil:
-		return []string{sTitle.Render("GITHUB"), "", sDim.Render("  disabled in config (github = false)")}, 0, 0
+		return []string{sTitle.Render("GitHub"), "", sDim.Render("  disabled in config (github = false)")}, 0, 0
 	}
 
 	cw := m.w - 2
 	const refW, authorW, ciW, reviewW, ageW = 34, 16, 4, 14, 5
 	titleW := max(10, cw-2-refW-authorW-ciW-reviewW-ageW)
 
-	review, mine, failing := m.ghSummary()
-	head := sTitle.Render("GITHUB") + sDim.Render("  @"+m.snap.GitHub.Login+fmt.Sprintf("  %d to review · %d open", review, mine))
-	if failing > 0 {
-		head += sBad.Render(fmt.Sprintf(" · %d failing CI", failing))
-	}
-	lines = []string{head}
-
 	idx := 0
 	for _, sec := range m.ghSections() {
-		lines = append(lines, "", sTitle.Render(sec.title)+sDim.Render(fmt.Sprintf("  %d", len(sec.prs))))
+		lines = append(lines, "", sTitle.Render(sec.title))
 		if len(sec.prs) == 0 {
 			lines = append(lines, "  "+sDim.Render("nothing here"))
 			continue

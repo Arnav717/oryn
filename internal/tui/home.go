@@ -284,16 +284,13 @@ func (m Model) projectLines() []string {
 	cw := m.w - 2
 	items := m.homeItems()
 	n := len(m.cfg.Projects)
-	loaded := m.snap != nil
 
-	const nameW, ghW, deployW, healthW = 20, 18, 24, 20
-	pathW := max(8, cw-2-nameW-ghW-deployW-healthW)
+	const nameW, ghW, deployW = 20, 18, 24
+	pathW := max(8, cw-2-nameW-ghW-deployW)
 
-	lines := []string{sTitle.Render("PROJECTS") + sDim.Render(fmt.Sprintf("  %d watched", n)), ""}
+	lines := []string{""}
 	if n == 0 {
 		lines = append(lines, sDim.Render("  Nothing watched yet. Pick a directory below to start."), "")
-	} else {
-		lines = append(lines, sDim.Render("  "+pad("PROJECT", nameW)+pad("PATH", pathW)+pad("GITHUB", ghW)+pad("DEPLOY", deployW)+"HEALTH"))
 	}
 
 	addGap := true
@@ -320,35 +317,14 @@ func (m Model) projectLines() []string {
 		if i == m.homeCursor {
 			name = sBold.Render(name)
 		}
-		health := sDim.Render("…")
-		// A project with no data while a refresh runs is still being scanned.
-		if loaded && !(m.loading && st.Deps == 0) {
-			health = vulnCell(st)
-			if st.Missing {
-				health = sBad.Render("directory missing")
-			}
+		if st.Missing {
+			lines = append(lines, marker+pad(name, nameW)+sBad.Render("directory missing"))
+			continue
 		}
 		lines = append(lines, marker+pad(name, nameW)+pad(sDim.Render(config.ShortHome(it.path)), pathW)+
-			pad(m.repoCell(it.path), ghW)+pad(m.deployCell(it.path), deployW)+health)
+			pad(m.repoCell(it.path), ghW)+m.deployCell(it.path))
 	}
 	return lines
-}
-
-func vulnCell(st projStat) string {
-	switch {
-	case st.Deps == 0:
-		return sDim.Render("no lockfiles found")
-	case st.Vulns == 0:
-		return sOK.Render("✓ clean")
-	}
-	detail := ""
-	switch {
-	case st.Crit > 0:
-		detail = fmt.Sprintf(" %d crit", st.Crit)
-	case st.High > 0:
-		detail = fmt.Sprintf(" %d high", st.High)
-	}
-	return rankStyle(st.MaxSev).Render(fmt.Sprintf("▲ %d", st.Vulns)) + sDim.Render(detail)
 }
 
 // upstreamPart is the one-phrase upstream summary.

@@ -10,17 +10,19 @@ talks directly to the services you connect, and sends only package names and
 versions to public APIs (OSV, npm, PyPI, Go proxy).
 
 ```
- ORYN   1 Home 4  2 Projects  3 Agents  4 Deploys  5 GitHub 4  6 Health 9  7 Activity
-╭──────────────────────────────────────╮╭──────────────────────────────────────╮
-│NEEDS YOU  4                          ││AGENTS                                │
-│▸ devdoq    ✗ CI is failing on main   ││  Not built yet.                      │
-│            ● 4 PRs waiting for review││                                      │
-╰──────────────────────────────────────╯╰──────────────────────────────────────╯
-╭──────────────────────────────────────╮╭──────────────────────────────────────╮
-│DEPLOYS  2 live                       ││GITHUB  4 to review                   │
-│  ● portfolio  vercel      ready  2h  ││  - devdoq/devdoq-workers#28  Observa…│
-╰──────────────────────────────────────╯╰──────────────────────────────────────╯
- Health: 250 vulns (9 crit, 83 high) · 80 outdated · 1 upstream issue   press 6
+ oryn   Home  Projects  Agents  Deploys  GitHub  Health  Activity          16:27
+
+ Needs you                               Deploys
+
+ ▸ devdoq   ● CI is failing on main        ● portfolio   cloudflare 2h
+   devdoq   ● 9 issues are assigned to you
+            ● 4 PRs are waiting for review
+                                         GitHub
+
+                                           devdoq-workers#28   Observability
+                                           RX-website#10       Add files via upload
+
+ tab switch · enter open · 1-7 tabs · ? help
 ```
 
 ## Install
@@ -46,14 +48,14 @@ oryn daemon          # background refresh + desktop alerts
 oryn ls · rm · scan · version
 ```
 
-`oryn` opens on a tab bar that stays on screen everywhere. Number keys switch
-tabs from any screen, and `esc` goes back.
+`oryn` opens on Home, with a tab bar that stays on screen everywhere. Keys `1`
+to `7` switch tabs from any screen, and `esc` goes back. `?` lists every key.
 
 | Key | Tab      | Shows                                                       |
 |-----|----------|-------------------------------------------------------------|
-| `1` | Home     | Four windows: Needs you, Agents, Deploys, GitHub, plus one health line |
+| `1` | Home     | Three windows: Needs you, Deploys, GitHub                   |
 | `2` | Projects | Every watched project; `enter` opens one, `a` adds, `d` removes |
-| `3` | Agents   | Not built yet: AI agents working across your projects       |
+| `3` | Agents   | Coming soon: AI agents working across your projects         |
 | `4` | Deploys  | Every deployment on every platform                          |
 | `5` | GitHub   | Your inbox: PRs to review, your own PRs                     |
 | `6` | Health   | Dependencies, vulnerabilities, outdated packages, upstream status for all projects |
@@ -63,8 +65,8 @@ Everywhere: `j/k` move · `r` refresh · `?` help · `q` quit.
 
 On Home: `tab` or `h/l` switch window · `enter` opens the selected row. **Needs
 you** ranks what's waiting on you: failed deploys, failing CI, PRs to review,
-assigned issues, upstream outages and critical vulnerabilities that are new
-since your last visit. Vulnerabilities you already know about stay on Health.
+assigned issues and critical vulnerabilities that are new since your last
+visit. Known vulnerabilities and upstream outages stay on Health.
 Windows stack on a narrow terminal, and a very short one shows only the focused
 window.
 
@@ -78,7 +80,7 @@ On Health: `tab` switch pane · `enter` open package · `/` search (`lod`, `chi`
 
 Opening a project gives you its own tabs (`[` and `]` switch): **Overview**,
 **Deploys**, **GitHub**, **Health** and **Activity**. It opens on Overview: what needs you
-here, where it's live, GitHub state, health and recent commits. `enter` opens
+here, where it's live, GitHub state and recent commits. `enter` opens
 the detail for a row, `p` deploys, `D` and `g` jump to Deploys and GitHub. The
 GitHub tab is read from the folder's git remote (`origin` first); no setup needed. It has eight sections
 (`h`/`l`):

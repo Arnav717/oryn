@@ -73,7 +73,7 @@ func (m Model) openAccounts(platform string) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) acctLines() []string {
-	lines := []string{sTitle.Render("ACCOUNTS") + sDim.Render("  tokens are verified with the platform before they are saved"), ""}
+	lines := []string{sTitle.Render("Accounts") + sDim.Render("  tokens are verified with the platform before they are saved"), ""}
 	for i, p := range deploy.Platforms {
 		marker := "  "
 		if i == m.acctCursor {
@@ -188,7 +188,7 @@ func (m Model) linkTarget(t app.DeployTarget) (tea.Model, tea.Cmd) {
 func (m Model) canCreate() bool { return deploy.CreatorFor(m.pickTarget.Link.Platform) != nil }
 
 func (m Model) pickLines() []string {
-	head := sTitle.Render("LINK PROJECT") + sDim.Render(fmt.Sprintf("  %s ← %s project", filepath.Base(m.pickTarget.Link.Project), m.pickTarget.Link.Platform))
+	head := sTitle.Render("Link project") + sDim.Render(fmt.Sprintf("  %s ← %s project", filepath.Base(m.pickTarget.Link.Project), m.pickTarget.Link.Platform))
 	switch {
 	case m.pickLoading:
 		return []string{head, "", sDim.Render("  loading projects…")}
