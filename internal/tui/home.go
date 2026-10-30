@@ -135,7 +135,7 @@ func (m *Model) openScope(scope string) {
 	m.cursor = [numPanes]int{}
 	m.offset = [numPanes]int{}
 	m.detail = ""
-	m.tab, m.rsub, m.ovCur = tabOverview, svOverview, 0
+	m.tab, m.rsub, m.pwin, m.pwCur = tabOverview, svOverview, pwNeeds, [numPWins]int{}
 	m.rcur, m.roff = [numSubs]int{}, [numSubs]int{}
 	if m.snap != nil {
 		m.index()

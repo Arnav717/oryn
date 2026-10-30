@@ -86,7 +86,15 @@ func TestEscGoesBack(t *testing.T) {
 	m.openScope("/code/a")
 	for tab := projTab(0); tab < numTabs; tab++ {
 		m.tab = tab
-		if got := press(t, m, "esc"); got.screen != screenProjects {
+		got := press(t, m, "esc")
+		if tab != tabOverview {
+			// An expanded window collapses to the grid first.
+			if got.screen != screenProject || got.tab != tabOverview {
+				t.Errorf("esc on project tab %d -> screen %d tab %d, want the windows", tab, got.screen, got.tab)
+			}
+			got = press(t, got, "esc")
+		}
+		if got.screen != screenProjects {
 			t.Errorf("esc on project tab %d -> %d, want the project list", tab, got.screen)
 		}
 	}

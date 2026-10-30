@@ -192,7 +192,7 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc":
 		if m.screen == screenProject {
-			m.openSection(secProjects)
+			m.setTab(tabOverview)
 		} else {
 			m.openSection(secHome)
 		}

@@ -141,7 +141,8 @@ type Model struct {
 
 	win    homeWin // focused window on Home
 	winCur [numWins]int
-	ovCur  int // project overview cursor
+	pwin   projWin // focused window on a project's front page
+	pwCur  [numPWins]int
 
 	ghCursor int
 	ghOffset int
@@ -360,6 +361,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+			return m.handleClick(msg.X, msg.Y), nil
+		}
 	}
 	return m, nil
 }
@@ -481,7 +487,7 @@ func (m Model) handlePaneKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc":
 		if m.screen == screenProject {
-			m.openSection(secProjects)
+			m.setTab(tabOverview)
 		} else {
 			m.openSection(secHome)
 		}

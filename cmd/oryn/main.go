@@ -132,7 +132,7 @@ func main() {
 
 	switch cmd {
 	case "tui":
-		p := tea.NewProgram(tui.New(cfg, st), tea.WithAltScreen())
+		p := tea.NewProgram(tui.New(cfg, st), tea.WithAltScreen(), tea.WithMouseCellMotion())
 		_, err := p.Run()
 		// Mark the end of this visit so only events from while you were away
 		// count as new next time.

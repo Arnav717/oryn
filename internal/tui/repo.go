@@ -74,6 +74,9 @@ func (m *Model) switchTab(delta int) {
 func (m *Model) setTab(t projTab) {
 	m.tab = t
 	m.detail = ""
+	if w, ok := windowForTab(t); ok {
+		m.pwin = w
+	}
 	if t == tabDeploys {
 		m.dpCursor, m.dpOffset = 0, 0
 		m.dpClamp()
@@ -398,7 +401,7 @@ func (m Model) handleRepoKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "esc":
-		m.openSection(secProjects)
+		m.setTab(tabOverview)
 	case "?":
 		m.showHelp = true
 	case "r":
@@ -453,17 +456,15 @@ func (m Model) open(url string) Model {
 	return m
 }
 
-// tabBarView is the project's name and its tabs.
+// tabBarView is the project's name, and which window is expanded.
 func (m Model) tabBarView() string {
-	parts := make([]string, numTabs)
-	for t := projTab(0); t < numTabs; t++ {
-		if t == m.tab {
-			parts[t] = sTab.Render(tabNames[t])
-		} else {
-			parts[t] = sTabOff.Render(tabNames[t])
-		}
+	line := " " + sBold.Render(filepath.Base(m.scope))
+	if m.tab == tabOverview {
+		line += sDim.Render("  enter or click a window to expand it")
+	} else {
+		line += "  " + sDim.Render("›") + " " + sAccent.Render(tabNames[m.tab]) + sDim.Render("   esc back")
 	}
-	return clip(" "+sBold.Render(filepath.Base(m.scope))+"  "+strings.Join(parts, ""), m.w)
+	return clip(line, m.w)
 }
 
 func orDash(s string) string {

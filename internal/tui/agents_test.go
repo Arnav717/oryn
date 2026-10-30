@@ -121,8 +121,12 @@ func TestProjectAgentsTabIsScoped(t *testing.T) {
 	if !strings.Contains(out, "ship login") || strings.Contains(out, "fix tests") || strings.Contains(out, "outside") {
 		t.Errorf("scoped:\n%s", out)
 	}
-	if got := press(t, m, "esc"); got.screen != screenProjects {
-		t.Errorf("esc: %d", got.screen)
+	got := press(t, m, "esc")
+	if got.screen != screenProject || got.tab != tabOverview {
+		t.Errorf("esc: screen %d tab %d, want the project's windows", got.screen, got.tab)
+	}
+	if got = press(t, got, "esc"); got.screen != screenProjects {
+		t.Errorf("esc from the windows: %d", got.screen)
 	}
 }
 

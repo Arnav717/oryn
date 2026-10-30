@@ -281,11 +281,11 @@ func (m Model) projectHints() string {
 	case tabAgents:
 		return "n new · a attach · v review · x stop · [ ] tabs"
 	case tabOverview:
-		return "enter open · p deploy · f fix · [ ] tabs"
+		return "tab window · enter expand · p deploy · f fix · [ ] jump"
 	case tabDeploys:
-		return "enter open · p deploy · [ ] tabs · ctrl+p commands"
+		return "enter open · p deploy · [ ] jump · ctrl+p commands"
 	case tabGitHub:
-		return "h/l section · enter open · [ ] tabs · ctrl+p commands"
+		return "h/l section · enter open · [ ] jump · ctrl+p commands"
 	case tabActivity:
 		return "f filter · enter open · [ ] tabs · ctrl+p commands"
 	}
@@ -584,10 +584,11 @@ func helpLines() []string {
 		row("f", "find every git repo in a folder and pick which to watch"),
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
-		row("[  ]", "inside a project: previous / next tab (Overview, Agents, Deploys, GitHub, Health, Activity)"),
+		row("tab, enter, esc", "inside a project: move between windows, expand one, come back"),
+		row("[  ]", "inside a project: jump to the previous / next window"),
 		row("h/l", "GitHub tab: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
 		row("enter / o", "GitHub tab: open the selected row / the repo in your browser"),
-		row("p  D  g", "Overview tab: deploy · Deploys tab · GitHub tab"),
+		row("p  D  g", "project windows: deploy · Deploys · GitHub"),
 		"",
 		sBold.Render("Deploys"),
 		row("p", "deploy the linked project (asks first)"),

@@ -197,23 +197,36 @@ func TestProjectOpensOnOverview(t *testing.T) {
 	}
 }
 
-func TestOverviewEnterOpensTheTab(t *testing.T) {
+func TestOverviewEnterExpandsTheWindow(t *testing.T) {
 	m := busyModel()
 	m.openScope("/code/a")
-	rows := m.overviewRows()
-	for i, r := range rows {
-		if r.to.url != "" {
-			continue
-		}
-		m.ovCur = i
+	for w := pwAgents; w < numPWins; w++ {
+		m.pwin = w
 		got := press(t, m, "enter")
-		if got.tab != r.to.tab {
-			t.Errorf("row %d -> tab %d, want %d", i, got.tab, r.to.tab)
+		if got.tab != projWindows[w].tab {
+			t.Errorf("window %q -> tab %d, want %d", projWindows[w].title, got.tab, projWindows[w].tab)
+		}
+		if back := press(t, got, "esc"); back.tab != tabOverview || back.pwin != w || back.screen != screenProject {
+			t.Errorf("esc from %q -> tab %d window %d screen %d, want the grid on the same window", projWindows[w].title, back.tab, back.pwin, back.screen)
 		}
 	}
 	first := press(t, m, "]")
 	if first.tab != tabAgents {
 		t.Errorf("] from overview -> %d", first.tab)
+	}
+}
+
+func TestOverviewClickExpandsTheWindow(t *testing.T) {
+	m := busyModel()
+	m.openScope("/code/a")
+	for _, r := range m.gridLayout() {
+		if r.win == pwNeeds {
+			continue
+		}
+		got := m.handleClick(r.x+2, r.y+m.chrome()-1+1)
+		if got.tab != projWindows[r.win].tab {
+			t.Errorf("click on %q -> tab %d, want %d", projWindows[r.win].title, got.tab, projWindows[r.win].tab)
+		}
 	}
 }
 

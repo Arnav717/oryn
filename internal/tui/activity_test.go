@@ -121,17 +121,21 @@ func TestCommandsReachHealthAndActivity(t *testing.T) {
 	}
 }
 
-func TestProjectTabBarKeepsEveryTab(t *testing.T) {
+func TestProjectBarNamesTheExpandedWindow(t *testing.T) {
 	m := busyModel()
 	m.openScope("/code/a")
 	for _, w := range []int{60, 80, 120} {
 		m.w = w
-		line := m.tabBarView()
-		for _, name := range tabNames {
-			if !strings.Contains(line, name) {
-				t.Errorf("width %d lost tab %s: %q", w, name, line)
+		if line := m.tabBarView(); !strings.Contains(line, "a") || !strings.Contains(line, "expand") {
+			t.Errorf("width %d: grid bar %q", w, line)
+		}
+		for tab := tabAgents; tab < numTabs; tab++ {
+			m.tab = tab
+			if line := m.tabBarView(); !strings.Contains(line, tabNames[tab]) || !strings.Contains(line, "esc back") {
+				t.Errorf("width %d tab %d: bar %q", w, tab, line)
 			}
 		}
+		m.tab = tabOverview
 	}
 }
 
