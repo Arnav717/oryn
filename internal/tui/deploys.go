@@ -218,14 +218,14 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "esc":
-		m.screen = screenHome
-	case "h", "backspace", "left":
-		if m.screen == screenDeploys {
-			m.screen = screenHome
+		if m.screen == screenProject {
+			m.openSection(secProjects)
+		} else {
+			m.openSection(secHome)
 		}
-	case "D":
+	case "h", "backspace", "left", "D":
 		if m.screen == screenDeploys {
-			m.screen = screenHome
+			m.openSection(secHome)
 		}
 	case "]":
 		if m.screen == screenProject {
@@ -295,11 +295,12 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) deploySummary() string {
+// deployCounts is how many projects have a production deploy, and how many of
+// those failed.
+func (m Model) deployCounts() (failing, live int) {
 	if m.snap == nil {
-		return ""
+		return 0, 0
 	}
-	failing, live := 0, 0
 	for _, t := range m.snap.Deploys {
 		if d, ok := t.Latest("production"); ok {
 			live++
@@ -308,6 +309,14 @@ func (m Model) deploySummary() string {
 			}
 		}
 	}
+	return failing, live
+}
+
+func (m Model) deploySummary() string {
+	if m.snap == nil {
+		return ""
+	}
+	failing, live := m.deployCounts()
 	s := fmt.Sprintf("%d live", live)
 	if failing > 0 {
 		s += " · " + sBad.Render(fmt.Sprintf("%d failing", failing))

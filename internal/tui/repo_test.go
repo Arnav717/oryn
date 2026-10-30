@@ -40,15 +40,15 @@ func fakeRepo(prs, issues int) *source.RepoData {
 
 func TestChromeAndTabBar(t *testing.T) {
 	m := repoModel(fakeRepo(0, 0))
-	if !m.tabBarVisible() || m.chrome() != 3 {
+	if !m.tabBarVisible() || m.chrome() != 4 {
 		t.Errorf("project: tabBar=%v chrome=%d", m.tabBarVisible(), m.chrome())
 	}
 	m.scope = "" // All projects has no single repo, so no tabs
-	if m.tabBarVisible() || m.chrome() != 2 {
+	if m.tabBarVisible() || m.chrome() != 3 {
 		t.Errorf("all projects: tabBar=%v chrome=%d", m.tabBarVisible(), m.chrome())
 	}
 	m.screen = screenHome
-	if m.chrome() != 2 {
+	if m.chrome() != 3 {
 		t.Errorf("home chrome = %d", m.chrome())
 	}
 }
@@ -91,7 +91,7 @@ func TestSubViewKeysAndScroll(t *testing.T) {
 			m = next.(Model)
 		}
 	}
-	press("2") // PRs
+	press("l") // PRs
 	if m.rsub != svPRs {
 		t.Fatalf("rsub = %d", m.rsub)
 	}
@@ -102,7 +102,7 @@ func TestSubViewKeysAndScroll(t *testing.T) {
 			t.Fatalf("step %d: cursor %d outside window [%d,%d)", i, c, o, o+vis)
 		}
 	}
-	press("3", "j", "2") // cursor per section is remembered
+	press("l", "j", "h") // cursor per section is remembered
 	if m.rcur[svPRs] != 55 || m.rcur[svIssues] != 1 {
 		t.Errorf("cursors: prs=%d issues=%d", m.rcur[svPRs], m.rcur[svIssues])
 	}
@@ -167,22 +167,22 @@ func TestAttention(t *testing.T) {
 
 func TestTabSwitching(t *testing.T) {
 	m := repoModel(fakeRepo(1, 1))
-	m.tab = tabDeps
+	m.tab = tabDeploys
 	m.switchTab(1)
 	if m.tab != tabGitHub {
-		t.Errorf("] from deps -> %d", m.tab)
+		t.Errorf("] from deploys -> %d", m.tab)
 	}
 	m.switchTab(1)
-	if m.tab != tabDeploys {
+	if m.tab != tabHealth {
 		t.Errorf("] from github -> %d", m.tab)
 	}
 	m.switchTab(1) // wraps
-	if m.tab != tabDeps {
-		t.Errorf("] from deploys -> %d", m.tab)
+	if m.tab != tabDeploys {
+		t.Errorf("] from health -> %d", m.tab)
 	}
 	m.scope = ""
 	m.switchTab(1)
-	if m.tab != tabDeps || m.flash == "" {
+	if m.tab != tabDeploys || m.flash == "" {
 		t.Errorf("tabs should be refused for All projects: tab=%d flash=%q", m.tab, m.flash)
 	}
 }

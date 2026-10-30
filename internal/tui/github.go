@@ -71,7 +71,7 @@ func (m *Model) ghClamp() {
 		return
 	}
 	_, line, top := m.ghLines()
-	vis := max(1, m.h-4)
+	vis := max(1, m.h-m.chrome()-2)
 	if top < m.ghOffset {
 		m.ghOffset = top
 	}
@@ -96,9 +96,9 @@ func (m Model) handleGHKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "k", "up":
 		m.ghCursor--
 	case "pgdown", "ctrl+d":
-		m.ghCursor += max(1, m.h-4)
+		m.ghCursor += max(1, m.h-m.chrome()-2)
 	case "pgup", "ctrl+u":
-		m.ghCursor -= max(1, m.h-4)
+		m.ghCursor -= max(1, m.h-m.chrome()-2)
 	case "g", "home":
 		m.ghCursor = 0
 	case "G", "end":
@@ -225,7 +225,7 @@ func humanAge(t time.Time) string {
 	return fmt.Sprintf("%dmo", int(d.Hours()/24/30))
 }
 
-// ghHomeSummary is the one-line status on the home screen's GitHub row.
+// ghHomeSummary is the one-line GitHub status on the home tab.
 func (m *Model) ghHomeSummary() string {
 	switch {
 	case m.snap == nil:

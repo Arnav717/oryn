@@ -59,13 +59,16 @@ func (p *pkgInfo) outdated() bool {
 	return slices.ContainsFunc(p.Versions, func(v string) bool { return source.Outdated(v, p.Latest) })
 }
 
-// screen is the top-level view. Home is the launcher; new sections plug in
-// as extra homeItem kinds.
+// screen is what fills the body. Each tab in sections.go lands on one, and a
+// few sub-screens (accounts, link picker, a running deploy) open from those.
 type screen int
 
 const (
 	screenHome screen = iota
+	screenProjects
 	screenProject
+	screenAgents
+	screenHealth
 	screenChanges
 	screenDeploys
 	screenAccounts
@@ -100,6 +103,7 @@ type Model struct {
 	dpCursor, dpOffset int // deploys screen
 
 	acctCursor int // accounts screen
+	acctBack   screen
 	tokenEntry bool
 	tokenInput textinput.Model
 
@@ -336,28 +340,18 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if id, ok := sectionKey(k); ok && m.navFree() {
+		m.openSection(id)
+		return m, nil
+	}
+
 	switch m.screen {
-	case screenHome:
-		return m.handleHomeKey(k)
-	case screenGitHub:
-		return m.handleGHKey(k)
-	case screenChanges:
-		return m.handleChangesKey(k)
-	case screenDeploys:
-		return m.handleDeployKey(k)
 	case screenAccounts:
 		return m.handleAccountsKey(k)
 	case screenPicker:
 		return m.handlePickerKey(k)
 	case screenDeployRun:
 		return m.handleRunKey(k)
-	}
-
-	if m.screen == screenProject && m.tab == tabDeploys {
-		return m.handleDeployKey(k)
-	}
-	if m.screen == screenProject && m.tab == tabGitHub {
-		return m.handleRepoKey(k)
 	}
 
 	if m.detail != "" {
@@ -374,11 +368,29 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.screen == screenProject {
+		switch m.tab {
+		case tabDeploys:
+			return m.handleDeployKey(k)
+		case tabGitHub:
+			return m.handleRepoKey(k)
+		}
+		return m.handlePaneKey(k)
+	}
+	return sections[m.section()].keys(m, k)
+}
+
+// handlePaneKey drives the four-pane Health view, for one project or all.
+func (m Model) handlePaneKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "q":
 		return m, tea.Quit
 	case "esc":
-		m.screen = screenHome
+		if m.screen == screenProject {
+			m.openSection(secProjects)
+		} else {
+			m.openSection(secHome)
+		}
 	case "]":
 		m.switchTab(1)
 	case "[":
@@ -387,9 +399,7 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.tabBarVisible() {
 			m.setTab(tabDeploys)
 		} else {
-			m.screen = screenDeploys
-			m.dpCursor, m.dpOffset = 0, 0
-			m.dpClamp()
+			m.openSection(secDeploys)
 		}
 	case ":", "/":
 		return m.openCommand()
@@ -401,8 +411,6 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.focus = (m.focus + 1) % numPanes
 	case "shift+tab", "h", "left":
 		m.focus = (m.focus + numPanes - 1) % numPanes
-	case "1", "2", "3", "4":
-		m.focus = paneID(k.String()[0] - '1')
 	case "j", "down":
 		m.move(1)
 	case "k", "up":

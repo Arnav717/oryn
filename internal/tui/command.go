@@ -13,20 +13,19 @@ var commands = map[string]func(m *Model) tea.Cmd{
 	"q": func(m *Model) tea.Cmd { return tea.Quit },
 	"r": func(m *Model) tea.Cmd { return m.startRefresh() },
 	"?": func(m *Model) tea.Cmd { m.showHelp = true; return nil },
-	"h": func(m *Model) tea.Cmd { m.screen = screenHome; return nil },
+	"h": func(m *Model) tea.Cmd { m.openSection(secHome); return nil },
 	// Inside a project g opens its GitHub tab; elsewhere, your account-wide inbox.
 	"g": func(m *Model) tea.Cmd {
 		if m.tabBarVisible() {
 			m.setTab(tabGitHub)
 		} else {
-			m.screen = screenGitHub
-			m.ghClamp()
+			m.openSection(secGitHub)
 		}
 		return nil
 	},
 	"d": func(m *Model) tea.Cmd {
 		if m.tabBarVisible() {
-			m.setTab(tabDeps)
+			m.setTab(tabHealth)
 		}
 		return nil
 	},
@@ -34,9 +33,7 @@ var commands = map[string]func(m *Model) tea.Cmd{
 		if m.tabBarVisible() {
 			m.setTab(tabDeploys)
 		} else {
-			m.screen = screenDeploys
-			m.dpCursor, m.dpOffset = 0, 0
-			m.dpClamp()
+			m.openSection(secDeploys)
 		}
 		return nil
 	},

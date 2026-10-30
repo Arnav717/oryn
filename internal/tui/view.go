@@ -41,83 +41,76 @@ func (m Model) View() string {
 	if m.w < 60 || m.h < 14 {
 		return "terminal too small (need 60x14)"
 	}
-	var body string
-	switch {
-	case m.showHelp:
-		body = m.fullBox(helpLines())
-	case m.screen == screenHome:
-		body = m.fullBox(m.homeLines())
-	case m.screen == screenDeployRun:
-		body = m.fullBox(m.runLines())
-	case m.screen == screenAccounts:
-		body = m.fullBox(m.acctLines())
-	case m.screen == screenPicker:
-		body = m.fullBox(m.pickLinesScrolled())
-	case m.screen == screenDeploys:
-		body = m.fullBox(m.deployBody())
-	case m.screen == screenChanges:
-		lines, _ := m.changesLines()
-		body = m.fullBox(lines[min(m.chOffset, len(lines)):])
-	case m.screen == screenGitHub:
-		lines, _, _ := m.ghLines()
-		body = m.fullBox(lines[min(m.ghOffset, len(lines)):])
-	case m.detail != "":
-		body = m.fullBox(m.detailLines())
-	case m.tabBarVisible() && m.tab == tabDeploys:
-		body = m.fullBox(m.deployBody())
-	case m.tabBarVisible() && m.tab == tabGitHub:
-		body = m.repoBody()
-	default:
-		top := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pPortfolio), m.pane(pVulns))
-		bot := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pStatus), m.pane(pTape))
-		body = lipgloss.JoinVertical(lipgloss.Left, top, bot)
-	}
+	rows := []string{m.tabsLine(), m.context()}
 	if m.tabBarVisible() && !m.showHelp {
-		return lipgloss.JoinVertical(lipgloss.Left, m.header(), m.tabBarView(), body, m.footer())
+		rows = append(rows, m.tabBarView())
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, m.header(), body, m.footer())
+	return lipgloss.JoinVertical(lipgloss.Left, append(rows, m.body(), m.footer())...)
 }
 
-func (m Model) header() string {
-	left := sLogo.Render("ORYN")
-	if m.screen == screenDeployRun {
-		left += " " + sDim.Render("›") + " " + sBold.Render("deploy") + "  " + sDim.Render(filepath.Base(m.run.project))
-	} else if m.screen == screenAccounts {
-		left += " " + sDim.Render("›") + " " + sBold.Render("accounts")
-	} else if m.screen == screenPicker {
-		left += " " + sDim.Render("›") + " " + sBold.Render("link project")
-	} else if m.screen == screenDeploys {
-		left += " " + sDim.Render("›") + " " + sBold.Render("deploys") + "  " + m.deploySummary()
-	} else if m.screen == screenChanges {
-		left += " " + sDim.Render("›") + " " + sBold.Render("changes")
+func (m Model) body() string {
+	switch {
+	case m.showHelp:
+		return m.fullBox(helpLines())
+	case m.screen == screenDeployRun:
+		return m.fullBox(m.runLines())
+	case m.screen == screenAccounts:
+		return m.fullBox(m.acctLines())
+	case m.screen == screenPicker:
+		return m.fullBox(m.pickLinesScrolled())
+	case m.detail != "":
+		return m.fullBox(m.detailLines())
+	case m.screen == screenProject && m.tab == tabDeploys:
+		return m.fullBox(m.deployBody())
+	case m.screen == screenProject && m.tab == tabGitHub:
+		return m.repoBody()
+	case m.screen == screenProject:
+		return m.panes()
+	}
+	return sections[m.section()].body(m)
+}
+
+// panes is the four-pane Health view.
+func (m Model) panes() string {
+	top := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pPortfolio), m.pane(pVulns))
+	bot := lipgloss.JoinHorizontal(lipgloss.Top, m.pane(pStatus), m.pane(pTape))
+	return lipgloss.JoinVertical(lipgloss.Left, top, bot)
+}
+
+// context is the line under the tabs: where you are and the numbers for it.
+func (m Model) context() string {
+	sep := sDim.Render(" · ")
+	crumb := func(s string) string { return sDim.Render("›") + " " + sBold.Render(s) }
+	var left string
+	switch m.screen {
+	case screenDeployRun:
+		left = crumb("deploy") + "  " + sDim.Render(filepath.Base(m.run.project))
+	case screenAccounts:
+		left = crumb("accounts")
+	case screenPicker:
+		left = crumb("link project")
+	case screenDeploys:
+		left = m.deploySummary()
+	case screenChanges:
 		if !m.since.IsZero() {
-			left += "  " + sDim.Render(fmt.Sprintf("since %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(m.sinceEvents())))
+			left = sDim.Render(fmt.Sprintf("since %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(m.sinceEvents())))
 		}
-	} else if m.screen == screenGitHub {
-		left += " " + sDim.Render("›") + " " + sBold.Render("github")
+	case screenGitHub:
 		if review, mine, failing := m.ghSummary(); m.snap != nil && m.snap.GitHub != nil {
 			parts := []string{fmt.Sprintf("%d to review", review), fmt.Sprintf("%d open", mine)}
 			if failing > 0 {
 				parts = append(parts, sBad.Render(fmt.Sprintf("%d failing CI", failing)))
 			}
-			left += "  " + strings.Join(parts, sDim.Render(" · "))
+			left = strings.Join(parts, sep)
 		}
-	} else if m.screen == screenHome {
-		left += " " + sDim.Render("home")
-		if m.snap != nil {
-			left += "  " + strings.Join([]string{
-				fmt.Sprintf("%d project(s)", len(m.cfg.Projects)),
-				vulnSummary(m.total.Vulns, m.total.Crit, m.total.High),
-				sWarn.Render(fmt.Sprintf("%d outdated", m.total.Outdated)),
-				m.upstreamPart(),
-			}, sDim.Render(" · "))
-		}
-	} else {
+	case screenHome, screenProjects:
+		left = sDim.Render(fmt.Sprintf("%d project(s)", len(m.cfg.Projects)))
+	case screenHealth, screenProject:
 		name := "all projects"
 		if m.scope != "" {
 			name = filepath.Base(m.scope)
 		}
-		left += " " + sDim.Render("›") + " " + sBold.Render(name)
+		left = crumb(name)
 		if d := m.repoDataFor(m.scope); m.tabBarVisible() && m.tab == tabGitHub && d != nil {
 			left += "  " + strings.Join([]string{
 				fmt.Sprintf("★ %d", d.Stars),
@@ -125,8 +118,8 @@ func (m Model) header() string {
 				fmt.Sprintf("%d issues", d.OpenIssues),
 				ciWord(d.DefaultCI),
 				alertPhrase(d),
-			}, sDim.Render(" · "))
-		} else if m.snap != nil {
+			}, sep)
+		} else if m.snap != nil && (m.screen == screenHealth || m.tab == tabHealth) {
 			var crit, high, outdated int
 			for _, v := range m.vulns {
 				switch v.Severity {
@@ -146,18 +139,10 @@ func (m Model) header() string {
 				vulnSummary(len(m.vulns), crit, high),
 				sWarn.Render(fmt.Sprintf("%d outdated", outdated)),
 				m.upstreamPart(),
-			}, sDim.Render(" · "))
+			}, sep)
 		}
 	}
-	right := m.now.Format("Mon 02 Jan 15:04:05")
-	if m.loading {
-		right = m.spin.View() + " refreshing  " + right
-	}
-	gap := m.w - lipgloss.Width(left) - lipgloss.Width(right)
-	if gap < 1 {
-		return clip(left, m.w)
-	}
-	return left + strings.Repeat(" ", gap) + sAccent.Render(right)
+	return clip(" "+left, m.w)
 }
 
 func vulnSummary(total, crit, high int) string {
@@ -223,54 +208,33 @@ func (m Model) footer() string {
 	if m.screen == screenPicker {
 		return clip(sDim.Render("j/k move · enter link · n new project · esc back · q quit"), m.w)
 	}
-	if m.screen == screenDeploys {
-		hints := sDim.Render("j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · esc home · r refresh · ? help · q quit")
-		if m.flash == "" {
-			return clip(hints, m.w)
-		}
-		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
-	}
-	if m.screen == screenChanges {
-		hints := sDim.Render("j/k move · enter open in browser · e expand/fold · esc home · r refresh · ? help · q quit")
-		if m.flash == "" {
-			return clip(hints, m.w)
-		}
-		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
-	}
-	if m.screen == screenGitHub {
-		hints := sDim.Render("j/k move · enter open in browser · esc home · r refresh · ? help · q quit")
-		if m.flash == "" {
-			return clip(hints, m.w)
-		}
-		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
-	}
-	if m.screen == screenHome {
-		switch items := m.homeItems(); {
+	if m.screen == screenProjects {
+		items := m.homeItems()
+		switch {
 		case m.adding:
 			return clip(m.pathInput.View(), m.w)
 		case m.confirmRm && m.homeCursor < len(items):
 			return sWarn.Render("stop watching " + filepath.Base(items[m.homeCursor].path) + "?  y to confirm, any other key cancels")
 		}
-		hints := sDim.Render("j/k move · enter open · 1-9 jump · c changes · D deploys · A accounts · a add · d remove · r refresh · ? help · q quit")
-		if m.flash == "" {
-			return clip(hints, m.w)
-		}
-		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
 	}
-	hints := sDim.Render("tab pane · j/k move · enter open · / search · esc home · r refresh · ? help · q quit")
-	if m.tabBarVisible() {
-		hints = sDim.Render("tab pane · j/k move · enter open · / search · [ ] tabs · esc home · r refresh · ? help · q quit")
-		if m.tab == tabDeploys {
-			hints = sDim.Render("j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · [ ] tabs · esc home · r refresh · ? help · q quit")
-		}
-		if m.tab == tabGitHub {
-			hints = sDim.Render("h/l section · 1-8 jump · j/k move · enter open · o repo · [ ] tabs · esc home · r refresh · ? help · q quit")
-		}
+	hints := sections[m.section()].hints
+	if m.screen == screenProject {
+		hints = m.projectHints()
 	}
 	if m.flash == "" {
-		return clip(hints, m.w)
+		return clip(sDim.Render(hints), m.w)
 	}
-	return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
+	return clip(sAccent.Render(m.flash)+sDim.Render("  │  "+hints), m.w)
+}
+
+func (m Model) projectHints() string {
+	switch m.tab {
+	case tabDeploys:
+		return "j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · [ ] tabs · esc projects · r refresh · ? help · q quit"
+	case tabGitHub:
+		return "h/l section · j/k move · enter open · o repo · [ ] tabs · esc projects · r refresh · ? help · q quit"
+	}
+	return "tab pane · j/k move · enter open · / search · [ ] tabs · esc projects · r refresh · ? help · q quit"
 }
 
 // suggestions lists live package matches for the command input; the first is
@@ -310,7 +274,7 @@ func (m Model) pane(p paneID) string {
 
 	sub, rows := m.paneContent(p, rowW)
 	lines := []string{
-		sTitle.Render(fmt.Sprintf("%d %s", p+1, paneTitles[p])) + sDim.Render(fmt.Sprintf("  %d", m.rowCount(p))),
+		sTitle.Render(paneTitles[p]) + sDim.Render(fmt.Sprintf("  %d", m.rowCount(p))),
 		"  " + sDim.Render(clip(sub, rowW)),
 	}
 	if m.snap == nil {
@@ -528,43 +492,34 @@ func helpLines() []string {
 	return []string{
 		sTitle.Render("ORYN HELP") + sDim.Render("   any key to close"),
 		"",
-		sBold.Render("Navigation"),
-		row("tab / shift+tab, h/l", "next / previous pane"),
-		row("1 2 3 4", "jump to pane"),
+		sBold.Render("Everywhere"),
+		row("1-7", "Home, Projects, Agents, Deploys, GitHub, Health, Activity"),
 		row("j/k, ↑/↓", "move"),
 		row("g / G, pgup / pgdn", "top / bottom, page"),
-		row("enter", "open package (DES)"),
-		row("c (on home)", "changes since you last looked"),
-		row("D (on home)", "deployments"),
-		row("p (deploys)", "deploy the linked project (asks first)"),
-		row("d / X (deploys)", "delete a deployment / the whole project (asks first)"),
-		row("u (deploys)", "unlink the folder in oryn only"),
-		row("n (link picker)", "create a new project on the platform"),
-		row("A (on home)", "connect Vercel / Netlify / Cloudflare accounts"),
+		row("esc", "back"),
 		row("r", "refresh now"),
 		row("q", "quit"),
 		"",
-		sBold.Render("Home") + sDim.Render("  (esc from a project)"),
-		row("j/k, enter", "pick a project (1-9 jumps straight in)"),
+		sBold.Render("Projects"),
+		row("enter", "open the project"),
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
+		row("[  ]", "inside a project: previous / next tab (Deploys, GitHub, Health)"),
+		row("h/l", "GitHub tab: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
+		row("enter / o", "GitHub tab: open the selected row / the repo in your browser"),
 		"",
-		sBold.Render("GitHub inbox") + sDim.Render("  (open it from home)"),
-		row("j/k, enter", "move · open the PR in your browser"),
-		row("esc", "back to home"),
+		sBold.Render("Deploys"),
+		row("p", "deploy the linked project (asks first)"),
+		row("d / X", "delete a deployment / the whole project (asks first)"),
+		row("u", "unlink the folder in oryn only"),
+		row("n (link picker)", "create a new project on the platform"),
+		row("A", "connect Vercel / Netlify / Cloudflare accounts"),
 		"",
-		sBold.Render("Project tabs") + sDim.Render("  (inside a single project)"),
-		row("[  ]", "previous / next tab (Dependencies, GitHub)"),
-		row("h/l or 1-8", "GitHub: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
-		row("enter / o", "GitHub: open the selected row / the repo in your browser"),
-		row("/g  /d", "jump to the GitHub / Dependencies tab"),
-		"",
-		sBold.Render("Search") + sDim.Render("  (press / or :, inside a project)"),
-		row("any letters", "fuzzy-find a package, e.g. `lod`, `chi`"),
-		row("tab", "complete best match"),
-		row("enter", "open best match"),
-		row("h  p  v  s  t", "home · portfolio · vulns · status · tape"),
-		row("r  ?  q", "refresh · help · quit"),
+		sBold.Render("Health"),
+		row("tab / shift+tab, h/l", "next / previous pane"),
+		row("enter", "open package"),
+		row("/ or :", "fuzzy-find a package, e.g. `lod`, `chi`; tab completes, enter opens"),
+		row("p  v  s  t", "search shortcuts: portfolio · vulns · status · tape"),
 		"",
 		sDim.Render("Config: ~/.config/oryn/config.toml · data: ~/.local/share/oryn/oryn.db"),
 	}

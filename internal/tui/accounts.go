@@ -59,6 +59,9 @@ func newTokenInput() textinput.Model {
 
 // openAccounts shows the accounts screen, with platform's row selected.
 func (m Model) openAccounts(platform string) (tea.Model, tea.Cmd) {
+	if m.screen != screenAccounts {
+		m.acctBack = m.screen
+	}
 	m.screen = screenAccounts
 	m.acctCursor = 0
 	for i, p := range deploy.Platforms {
@@ -127,7 +130,7 @@ func (m Model) handleAccountsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "esc", "h", "A", "backspace", "left":
-		m.screen = screenHome
+		m.screen = m.acctBack
 	case "?":
 		m.showHelp = true
 	case "j", "down":

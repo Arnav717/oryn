@@ -35,33 +35,36 @@ gh attestation verify oryn_<version>_linux_amd64.tar.gz --repo Arnav717/oryn
 ## Use
 
 ```sh
-oryn                 # home screen: pick a project
+oryn                 # open the terminal
 oryn add             # watch the current directory (once per project)
 oryn daemon          # background refresh + desktop alerts
 oryn ls · rm · scan · version
 ```
 
-`oryn` opens a **home screen** listing your projects with live counts (deps,
-vulnerabilities, outdated). The project you launched from is preselected.
-`enter` (or `1`-`9`) opens a project's dashboard; `esc` comes back. Add and
-remove projects from the home screen with `a` and `d`, or pick "All projects"
-for the combined view.
+`oryn` opens on a tab bar that stays on screen everywhere. Number keys switch
+tabs from any screen, and `esc` goes back.
 
-Home keys: `j/k` move · `enter` open · `1-9` jump · `a` add · `d` remove ·
-`r` refresh · `?` help · `q` quit.
+| Key | Tab      | Shows                                                       |
+|-----|----------|-------------------------------------------------------------|
+| `1` | Home     | Overview: projects, GitHub, deploys, new activity, one health line |
+| `2` | Projects | Every watched project; `enter` opens one, `a` adds, `d` removes |
+| `3` | Agents   | Not built yet: AI agents working across your projects       |
+| `4` | Deploys  | Every deployment on every platform                          |
+| `5` | GitHub   | Your inbox: PRs to review, your own PRs                     |
+| `6` | Health   | Dependencies, vulnerabilities, outdated packages, upstream status for all projects |
+| `7` | Activity | What changed since you last looked                          |
 
-Dashboard keys: `tab` switch pane · `j/k` move · `enter` open package ·
-`/` search · `esc` home · `r` refresh · `?` help · `q` quit.
+Everywhere: `j/k` move · `r` refresh · `?` help · `q` quit.
 
-Search: press `/`, type a few letters (`lod`, `chi`). Matches appear live;
-`tab` completes, `enter` opens. Single letters jump: `h` home, `p` portfolio,
-`v` vulns, `s` status, `t` tape.
+On Health: `tab` switch pane · `enter` open package · `/` search (`lod`, `chi`;
+`tab` completes, `enter` opens).
 
 ### Projects are containers
 
-Opening a project gives you tabs (`[` and `]` switch): **Dependencies** and
-**GitHub**. The GitHub tab is read from the folder's git remote (`origin`
-first); no setup needed. It has eight sections (`h`/`l` or `1`-`8`):
+Opening a project gives you its own tabs (`[` and `]` switch): **Deploys**,
+**GitHub** and **Health**. It opens on GitHub. The GitHub tab is read from the
+folder's git remote (`origin` first); no setup needed. It has eight sections
+(`h`/`l`):
 
 | Section  | Shows                                                         |
 |----------|---------------------------------------------------------------|
@@ -74,8 +77,7 @@ first); no setup needed. It has eight sections (`h`/`l` or `1`-`8`):
 | Releases | recent releases                                               |
 | Alerts   | open Dependabot alerts (needs admin access to the repo)       |
 
-`enter` opens the selected row in your browser, `o` opens the repo. The home
-screen shows each project's open PRs and issues in a GITHUB column.
+`enter` opens the selected row in your browser, `o` opens the repo.
 
 If a folder's remote isn't GitHub (or you want a different repo), map it:
 
@@ -86,7 +88,7 @@ If a folder's remote isn't GitHub (or you want a different repo), map it:
 
 ### GitHub inbox
 
-The home screen also has a **GitHub** row under *Integrations*: PRs waiting on
+The **GitHub** tab lists PRs waiting on
 your review and your own open PRs across every repo, with CI state, review
 state and age. Your own PRs are sorted so failing CI and requested changes
 come first. `enter` opens the PR in your browser.
@@ -114,7 +116,7 @@ Run it at login with the systemd unit in `contrib/oryn.service`.
 | Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
 | Upstream  | statuspage `/api/v2/status.json` endpoints: your configured services plus vendors detected in your lockfiles (Sentry, Twilio, MongoDB, ...). Turn the detected ones off with `stack_status = false` |
 | GitHub    | GraphQL + REST API: review requests, your PRs, and per-repo PRs, issues, Actions, commits, people, releases, Dependabot alerts |
-| Deploys   | Vercel, Netlify and Cloudflare Pages: detected from `vercel.json`, `.vercel/`, `netlify.toml`, `wrangler.*`; connect an account in the TUI (`A` on the home screen: paste a token, oryn verifies it before saving), or use `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` / `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, or the platform CLI login. Pick a project for a folder with enter on the deploys screen (`D`), or create a brand-new one from the same picker (`+ Create a new project`) for a first deploy. Press `p` to deploy a linked project: oryn shows the exact platform-CLI command (vercel, netlify or wrangler) and runs it only after you confirm. Links are kept in your oryn config, never written into the project. Failed deploys land on the tape |
+| Deploys   | Vercel, Netlify and Cloudflare Pages: detected from `vercel.json`, `.vercel/`, `netlify.toml`, `wrangler.*`; connect an account in the TUI (`A`: paste a token, oryn verifies it before saving), or use `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` / `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, or the platform CLI login. Pick a project for a folder with enter on the Deploys tab, or create a brand-new one from the same picker (`+ Create a new project`) for a first deploy. Press `p` to deploy a linked project: oryn shows the exact platform-CLI command (vercel, netlify or wrangler) and runs it only after you confirm. Links are kept in your oryn config, never written into the project. Failed deploys land on the tape |
 | Tape      | every new vuln, release and status change, stored in SQLite |
 
 Direct vs. transitive comes from the lockfile where it records it (npm, pnpm,

@@ -18,13 +18,13 @@ import (
 type projTab int
 
 const (
-	tabDeps projTab = iota
+	tabDeploys projTab = iota
 	tabGitHub
-	tabDeploys
+	tabHealth
 	numTabs
 )
 
-var tabNames = [numTabs]string{"Dependencies", "GitHub", "Deploys"}
+var tabNames = [numTabs]string{"Deploys", "GitHub", "Health"}
 
 // subView is a section of the GitHub tab.
 type subView int
@@ -46,13 +46,13 @@ var subNames = [numSubs]string{"Overview", "PRs", "Issues", "Actions", "Commits"
 // tabBarVisible: tabs only make sense for a single project.
 func (m *Model) tabBarVisible() bool { return m.screen == screenProject && m.scope != "" }
 
-// chrome is the number of screen lines used outside the body (header, footer
-// and, inside a project, the tab bar).
+// chrome is the number of screen lines used outside the body (top tabs,
+// context line, footer and, inside a project, its tab row).
 func (m *Model) chrome() int {
 	if m.tabBarVisible() {
-		return 3
+		return 4
 	}
-	return 2
+	return 3
 }
 
 func (m *Model) switchTab(delta int) {
@@ -262,7 +262,7 @@ func subCount(d *source.RepoData, s subView) string {
 func (m Model) subNav(d *source.RepoData) string {
 	parts := make([]string, numSubs)
 	for s := subView(0); s < numSubs; s++ {
-		label := fmt.Sprintf("%d %s", s+1, subNames[s])
+		label := subNames[s]
 		if c := subCount(d, s); c != "" {
 			label += " " + c
 		}
@@ -460,11 +460,11 @@ func (m *Model) attention(d *source.RepoData) []string {
 
 func (m Model) handleRepoKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	d, _ := m.repoState()
-	switch s := k.String(); s {
+	switch k.String() {
 	case "q":
 		return m, tea.Quit
 	case "esc":
-		m.screen = screenHome
+		m.openSection(secProjects)
 	case "?":
 		m.showHelp = true
 	case "r":
@@ -479,8 +479,6 @@ func (m Model) handleRepoKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.rsub = (m.rsub + 1) % numSubs
 	case "h", "left", "shift+tab":
 		m.rsub = (m.rsub + numSubs - 1) % numSubs
-	case "1", "2", "3", "4", "5", "6", "7", "8":
-		m.rsub = subView(s[0] - '1')
 	case "j", "down":
 		m.rcur[m.rsub]++
 	case "k", "up":
@@ -552,7 +550,7 @@ func orDash(s string) string {
 	return s
 }
 
-// repoSummary is the compact one-liner used on the home screen's project rows.
+// repoCell is the compact one-liner used on project rows.
 func (m Model) repoCell(project string) string {
 	if m.snap == nil {
 		return sDim.Render("…")

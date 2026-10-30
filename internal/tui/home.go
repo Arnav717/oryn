@@ -74,9 +74,7 @@ func (m *Model) statsFor(deps []detect.Dep) projStat {
 type itemKind int
 
 const (
-	itemAll itemKind = iota
-	itemProject
-	itemGitHub
+	itemProject itemKind = iota
 	itemAddCwd
 	itemAddPath
 )
@@ -86,23 +84,11 @@ type homeItem struct {
 	path string
 }
 
-// openable items lead to a dashboard; the rest are actions.
-func (it homeItem) openable() bool {
-	return it.kind == itemAll || it.kind == itemProject || it.kind == itemGitHub
-}
-
-// homeItems is the launcher menu. Future sections (GitHub, costs, ...) become
-// new itemKinds here.
+// homeItems is the rows of the Projects tab.
 func (m *Model) homeItems() []homeItem {
 	var items []homeItem
-	if len(m.cfg.Projects) > 1 {
-		items = append(items, homeItem{kind: itemAll})
-	}
 	for _, p := range m.cfg.Projects {
 		items = append(items, homeItem{kind: itemProject, path: p})
-	}
-	if m.cfg.GitHubEnabled() {
-		items = append(items, homeItem{kind: itemGitHub})
 	}
 	if home, _ := os.UserHomeDir(); m.cwd != "" && m.cwd != home && m.watchedRoot(m.cwd) == "" {
 		items = append(items, homeItem{kind: itemAddCwd, path: m.cwd})
@@ -138,14 +124,18 @@ func (m *Model) clampHome() {
 	m.homeCursor = max(0, min(m.homeCursor, len(m.homeItems())-1))
 }
 
+// openScope opens one project, or with "" the all-projects Health tab.
 func (m *Model) openScope(scope string) {
 	m.screen = screenProject
+	if scope == "" {
+		m.screen = screenHealth
+	}
 	m.scope = scope
 	m.focus = pPortfolio
 	m.cursor = [numPanes]int{}
 	m.offset = [numPanes]int{}
 	m.detail = ""
-	m.tab, m.rsub = tabDeps, svOverview
+	m.tab, m.rsub = tabGitHub, svOverview
 	m.rcur, m.roff = [numSubs]int{}, [numSubs]int{}
 	if m.snap != nil {
 		m.index()
@@ -154,6 +144,26 @@ func (m *Model) openScope(scope string) {
 }
 
 func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch k.String() {
+	case "q":
+		return m, tea.Quit
+	case "?":
+		m.showHelp = true
+	case "r":
+		return m, m.startRefresh()
+	case "enter":
+		m.openSection(secProjects)
+	case "A":
+		return m.openAccounts("")
+	case "D":
+		m.openSection(secDeploys)
+	case "c":
+		m.openSection(secActivity)
+	}
+	return m, nil
+}
+
+func (m Model) handleProjectsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.adding {
 		switch k.String() {
 		case "esc":
@@ -181,9 +191,11 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	switch s := k.String(); s {
-	case "q", "esc":
+	switch k.String() {
+	case "q":
 		return m, tea.Quit
+	case "esc":
+		m.openSection(secHome)
 	case "?":
 		m.showHelp = true
 	case "r":
@@ -201,23 +213,14 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "A":
 		return m.openAccounts("")
 	case "D":
-		m.screen = screenDeploys
-		m.dpCursor, m.dpOffset = 0, 0
-		m.dpClamp()
+		m.openSection(secDeploys)
 	case "c":
-		m.screen = screenChanges
-		m.chCursor, m.chOffset, m.chExpand = 0, 0, false
-		m.chClamp()
+		m.openSection(secActivity)
 	case "a":
 		return m.startAdd(m.cwd)
 	case "d", "x":
 		if items[m.homeCursor].kind == itemProject {
 			m.confirmRm = true
-		}
-	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-		if i := int(s[0] - '1'); i < len(items) && items[i].openable() {
-			m.homeCursor = i
-			return m.activate(items[i])
 		}
 	}
 	return m, nil
@@ -225,14 +228,8 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) activate(it homeItem) (tea.Model, tea.Cmd) {
 	switch it.kind {
-	case itemAll:
-		m.openScope("")
 	case itemProject:
 		m.openScope(it.path)
-	case itemGitHub:
-		m.screen = screenGitHub
-		m.ghCursor, m.ghOffset = 0, 0
-		m.ghClamp()
 	case itemAddCwd:
 		return m.addProject(it.path)
 	case itemAddPath:
@@ -276,9 +273,6 @@ func (m Model) addProject(raw string) (tea.Model, tea.Cmd) {
 		m.flash = "added, but could not save config: " + err.Error()
 	}
 	m.homeCursor = slices.Index(m.cfg.Projects, abs)
-	if len(m.cfg.Projects) > 1 {
-		m.homeCursor++ // "All projects" row now leads the list
-	}
 	return m, m.startRefresh()
 }
 
@@ -305,47 +299,72 @@ func (m Model) removeProject(path string) (tea.Model, tea.Cmd) {
 	return m, m.startRefresh()
 }
 
-// homeLines renders the launcher body.
+// homeLines is the overview on the Home tab. Health stays one line at the
+// bottom: it matters, but it isn't what you open oryn to do.
 func (m Model) homeLines() []string {
+	lines := []string{sTitle.Render("PROJECTS") + sDim.Render(fmt.Sprintf("  %d watched", len(m.cfg.Projects)))}
+	if len(m.cfg.Projects) == 0 {
+		lines = append(lines, sDim.Render("  Nothing watched yet. Press 2 to add a project."))
+	}
+	for _, p := range m.cfg.Projects[:min(6, len(m.cfg.Projects))] {
+		lines = append(lines, "  "+pad(filepath.Base(p), 20)+pad(m.repoCell(p), 18)+m.deployCell(p))
+	}
+	if n := len(m.cfg.Projects) - 6; n > 0 {
+		lines = append(lines, sDim.Render(fmt.Sprintf("  and %d more, press 2", n)))
+	}
+
+	if m.cfg.GitHubEnabled() {
+		lines = append(lines, "", sTitle.Render("GITHUB"), "  "+m.ghHomeSummary())
+	}
+
+	lines = append(lines, m.deployLines()...)
+
+	lines = append(lines, "", sTitle.Render("ACTIVITY"))
+	switch n := len(m.sinceEvents()); {
+	case m.since.IsZero():
+		lines = append(lines, sDim.Render("  First visit: changes appear here from your next visit."))
+	case n == 0:
+		lines = append(lines, sDim.Render(fmt.Sprintf("  nothing new since %s ago", shortAgo(m.now.Sub(m.since)))))
+	default:
+		lines = append(lines, fmt.Sprintf("  %d new since %s ago", n, shortAgo(m.now.Sub(m.since)))+sDim.Render("   press 7"))
+	}
+
+	lines = append(lines, "", sTitle.Render("HEALTH"))
+	if m.snap == nil {
+		return append(lines, sDim.Render("  checking…"))
+	}
+	return append(lines, "  "+strings.Join([]string{
+		vulnSummary(m.total.Vulns, m.total.Crit, m.total.High),
+		sWarn.Render(fmt.Sprintf("%d outdated", m.total.Outdated)),
+		m.upstreamPart(),
+	}, sDim.Render(" · "))+sDim.Render("   press 6"))
+}
+
+// projectLines renders the Projects tab.
+func (m Model) projectLines() []string {
 	cw := m.w - 2
 	items := m.homeItems()
 	n := len(m.cfg.Projects)
 	loaded := m.snap != nil
 
-	const nameW, depsW, vulnW, outW, ghW = 20, 7, 20, 10, 18
-	pathW := max(8, cw-6-nameW-depsW-vulnW-outW-ghW)
+	const nameW, ghW, deployW, healthW = 20, 18, 24, 20
+	pathW := max(8, cw-2-nameW-ghW-deployW-healthW)
 
 	lines := []string{sTitle.Render("PROJECTS") + sDim.Render(fmt.Sprintf("  %d watched", n)), ""}
 	if n == 0 {
 		lines = append(lines, sDim.Render("  Nothing watched yet. Pick a directory below to start."), "")
 	} else {
-		lines = append(lines, sDim.Render("      "+pad("PROJECT", nameW)+pad("PATH", pathW)+pad("DEPS", depsW)+pad("VULNS", vulnW)+pad("OUTDATED", outW)+"GITHUB"))
+		lines = append(lines, sDim.Render("  "+pad("PROJECT", nameW)+pad("PATH", pathW)+pad("GITHUB", ghW)+pad("DEPLOY", deployW)+"HEALTH"))
 	}
 
-	addGap, sawIntegrations := true, false
+	addGap := true
 	for i, it := range items {
-		marker, num := "  ", "    "
+		marker := "  "
 		if i == m.homeCursor {
 			marker = sAccent.Render("▸ ")
 		}
-		if it.openable() && i < 9 {
-			num = sDim.Render(fmt.Sprintf("%d   ", i+1))
-		}
 
-		if it.kind == itemGitHub {
-			if !sawIntegrations {
-				sawIntegrations = true
-				lines = append(lines, "", sTitle.Render("INTEGRATIONS"), "")
-			}
-			name := "GitHub"
-			if i == m.homeCursor {
-				name = sBold.Render(name)
-			}
-			lines = append(lines, marker+num+pad(name, nameW)+m.ghHomeSummary())
-			continue
-		}
-
-		if !it.openable() {
+		if it.kind != itemProject {
 			if addGap && n > 0 {
 				lines = append(lines, "")
 			}
@@ -354,46 +373,24 @@ func (m Model) homeLines() []string {
 			if it.kind == itemAddCwd {
 				label, hint = "Add current directory", sDim.Render(config.ShortHome(it.path))
 			}
-			lines = append(lines, marker+sAccent.Render("+   ")+pad(label, nameW+2)+hint)
+			lines = append(lines, marker+sAccent.Render("+ ")+pad(label, nameW+2)+hint)
 			continue
 		}
 
-		name, path, st := "All projects", sDim.Render(fmt.Sprintf("%d projects", n)), m.total
-		if it.kind == itemProject {
-			name, path, st = filepath.Base(it.path), sDim.Render(config.ShortHome(it.path)), m.stats[it.path]
-		}
+		name, st := filepath.Base(it.path), m.stats[it.path]
 		if i == m.homeCursor {
 			name = sBold.Render(name)
 		}
-		deps, vulns, outdated := sDim.Render("…"), sDim.Render("…"), sDim.Render("…")
+		health := sDim.Render("…")
 		// A project with no data while a refresh runs is still being scanned.
 		if loaded && !(m.loading && st.Deps == 0) {
-			deps, vulns, outdated = fmt.Sprint(st.Deps), vulnCell(st), outdatedCell(st)
-			if it.kind == itemProject && st.Missing {
-				vulns, outdated = sBad.Render("directory missing"), ""
+			health = vulnCell(st)
+			if st.Missing {
+				health = sBad.Render("directory missing")
 			}
 		}
-		ghCell := ""
-		if it.kind == itemProject && loaded {
-			ghCell = m.repoCell(it.path)
-		}
-		lines = append(lines, marker+num+pad(name, nameW)+pad(path, pathW)+pad(deps, depsW)+pad(vulns, vulnW)+pad(outdated, outW)+ghCell)
-	}
-
-	lines = append(lines, m.sinceLines()...)
-
-	lines = append(lines, m.deployLines()...)
-
-	lines = append(lines, "", sTitle.Render("UPSTREAM"))
-	lines = append(lines, m.upstreamLines()...)
-
-	lines = append(lines, "", sTitle.Render("RECENT"))
-	if !loaded || len(m.snap.Events) == 0 {
-		lines = append(lines, sDim.Render("  nothing yet"))
-	} else {
-		for _, e := range m.snap.Events[:min(6, len(m.snap.Events))] {
-			lines = append(lines, "  "+eventLine(e))
-		}
+		lines = append(lines, marker+pad(name, nameW)+pad(sDim.Render(config.ShortHome(it.path)), pathW)+
+			pad(m.repoCell(it.path), ghW)+pad(m.deployCell(it.path), deployW)+health)
 	}
 	return lines
 }
@@ -415,50 +412,7 @@ func vulnCell(st projStat) string {
 	return rankStyle(st.MaxSev).Render(fmt.Sprintf("▲ %d", st.Vulns)) + sDim.Render(detail)
 }
 
-func outdatedCell(st projStat) string {
-	switch {
-	case st.Deps == 0:
-		return ""
-	case st.Outdated == 0:
-		return sOK.Render("✓")
-	}
-	return sWarn.Render(fmt.Sprint(st.Outdated))
-}
-
-// upstreamLines lists services with problems, or one line when all is well.
-func (m Model) upstreamLines() []string {
-	if m.snap == nil {
-		return []string{sDim.Render("  checking…")}
-	}
-	var lines []string
-	ok := 0
-	for _, s := range m.snap.Status {
-		switch {
-		case s.OK():
-			ok++
-		case s.Err != nil:
-			lines = append(lines, "  "+sDim.Render("? "+pad(s.Service, 14)+"unreachable"))
-		case s.Indicator == "major" || s.Indicator == "critical":
-			lines = append(lines, "  "+sBad.Render("● "+pad(s.Service, 14)+s.Description))
-		default:
-			lines = append(lines, "  "+sWarn.Render("● "+pad(s.Service, 14)+s.Description))
-		}
-	}
-	via := m.stackVia()
-	if len(lines) == 0 {
-		lines = []string{"  " + sOK.Render(fmt.Sprintf("● all %d services operational", ok))}
-		if via != "" {
-			lines = append(lines, "  "+sDim.Render("  from your stack: "+via))
-		}
-		return lines
-	}
-	if ok > 0 {
-		lines = append(lines, "  "+sDim.Render(fmt.Sprintf("%d others operational", ok)))
-	}
-	return lines
-}
-
-// upstreamPart is the one-phrase upstream summary for the header.
+// upstreamPart is the one-phrase upstream summary.
 func (m Model) upstreamPart() string {
 	down := 0
 	for _, s := range m.snap.Status {
@@ -552,23 +506,6 @@ func sevName(rank int) string {
 	return []string{"unknown", "low", "medium", "high", "critical"}[min(max(rank, 0), 4)]
 }
 
-func (m Model) sinceLines() []string {
-	evs := m.sinceEvents()
-	if len(evs) == 0 {
-		return nil
-	}
-	rows := groupSince(evs)
-	head := sTitle.Render("SINCE YOU LAST LOOKED") + sDim.Render(fmt.Sprintf("  %s ago · %d new", shortAgo(m.now.Sub(m.since)), len(evs)))
-	lines := []string{"", head}
-	for _, r := range rows[:min(6, len(rows))] {
-		lines = append(lines, "  "+r.line)
-	}
-	if len(rows) > 6 {
-		lines = append(lines, sDim.Render(fmt.Sprintf("  …and %d more changes (press c)", len(rows)-6)))
-	}
-	return lines
-}
-
 func shortAgo(d time.Duration) string {
 	switch {
 	case d < time.Minute:
@@ -593,15 +530,4 @@ func (m *Model) loadSince() {
 		return
 	}
 	m.sinceDB, m.sinceLoaded = evs, true
-}
-
-// stackVia names services watched because of a lockfile dependency.
-func (m Model) stackVia() string {
-	var parts []string
-	for _, s := range m.snap.Status {
-		if s.Via != "" {
-			parts = append(parts, s.Service+" ("+s.Via+")")
-		}
-	}
-	return strings.Join(parts, ", ")
 }
