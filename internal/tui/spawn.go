@@ -28,6 +28,7 @@ type spawnForm struct {
 	input   textinput.Model
 	dirty   bool
 	busy    bool
+	prefill string
 }
 
 func (f spawnForm) hints() string {
@@ -65,6 +66,18 @@ func (m Model) openSpawn() (tea.Model, tea.Cmd) {
 	return m, f.advanceIfOneTool()
 }
 
+// openSpawnWith starts the form on a project with the task already written.
+func (m Model) openSpawnWith(project, task string) (tea.Model, tea.Cmd) {
+	next, _ := m.openSpawn()
+	m = next.(Model)
+	if m.spawn == nil {
+		return m, nil
+	}
+	f := &spawnForm{tools: m.spawn.tools, project: project, step: spawnTool, prefill: task}
+	m.spawn = f
+	return m, f.advanceIfOneTool()
+}
+
 // advanceIfOneTool skips the tool question when there's nothing to choose.
 func (f *spawnForm) advanceIfOneTool() tea.Cmd {
 	if f.step == spawnTool && len(f.tools) == 1 {
@@ -81,6 +94,7 @@ func (f *spawnForm) toTask() tea.Cmd {
 	f.input.Prompt = ""
 	f.input.Placeholder = "What should it do?"
 	f.input.CharLimit = 2000
+	f.input.SetValue(f.prefill)
 	return f.input.Focus()
 }
 

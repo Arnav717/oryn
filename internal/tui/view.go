@@ -64,6 +64,8 @@ func (m Model) body() string {
 		return m.fullBox(m.spawnLines())
 	case m.finder != nil:
 		return m.fullBox(m.finderLines())
+	case m.review != nil:
+		return m.fullBox(m.reviewLines())
 	case m.showHelp:
 		return m.fullBox(helpLines())
 	case m.screen == screenDeployRun:
@@ -167,6 +169,15 @@ func (m Model) footer() string {
 	if m.finder != nil {
 		return m.statusLine(m.finder.hints())
 	}
+	if m.discard != nil {
+		return clip(" "+sBad.Render("delete this worktree and its local branch? Type "+m.discard.run.Slug+": ")+m.discard.input.View(), m.w)
+	}
+	if m.shipAsk != nil {
+		return clip(" "+sWarn.Render("push "+m.shipAsk.Branch+" and open a PR on GitHub?  y to confirm, any other key cancels"), m.w)
+	}
+	if m.review != nil {
+		return m.statusLine("P push and PR · a attach · X discard · esc back")
+	}
 	if m.stopAsk != nil {
 		return clip(" "+sWarn.Render("stop "+m.stopAsk.Slug+"? its work stays on "+m.stopAsk.Branch+".  y to confirm, any other key cancels"), m.w)
 	}
@@ -227,7 +238,7 @@ func (m Model) footer() string {
 		hints = m.projectHints()
 	}
 	if m.agOpen != "" && (m.screen == screenAgents || m.tab == tabAgents) {
-		hints = "a attach · x stop · esc back"
+		hints = "a attach · v review · x stop · esc back"
 	}
 	return m.statusLine(hints)
 }
@@ -257,8 +268,10 @@ func (m Model) statusLine(hints string) string {
 func (m Model) projectHints() string {
 	switch m.tab {
 	case tabAgents:
-		return "n new · a attach · x stop · enter details · [ ] tabs"
-	case tabOverview, tabDeploys:
+		return "n new · a attach · v review · x stop · [ ] tabs"
+	case tabOverview:
+		return "enter open · p deploy · f fix · [ ] tabs"
+	case tabDeploys:
 		return "enter open · p deploy · [ ] tabs · ctrl+p commands"
 	case tabGitHub:
 		return "h/l section · enter open · [ ] tabs · ctrl+p commands"
@@ -541,6 +554,10 @@ func helpLines() []string {
 		row("n", "start an agent in its own worktree and branch"),
 		row("a", "attach to an agent oryn started (ctrl+] comes back)"),
 		row("x", "stop it; its worktree and branch stay"),
+		row("v", "review what it changed"),
+		row("P", "push its branch and open a PR (asks first)"),
+		row("X", "discard its worktree and local branch (type its name)"),
+		row("f (Needs you)", "start an agent on a failing CI run or deploy"),
 		row("enter", "details: what it's doing, and how to get back to it"),
 		"",
 		sBold.Render("Activity"),

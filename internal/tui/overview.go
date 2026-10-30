@@ -21,10 +21,10 @@ func (m Model) overviewRows() []winRow {
 		if i == 0 {
 			head = label("Needs")
 		}
-		rows = append(rows, winRow{head + it.render(), it.to})
+		rows = append(rows, winRow{head + it.render(), it.to, it.fix})
 	}
 
-	rows = append(rows, winRow{label("Agents") + m.agentSummary(p), target{project: p, tab: tabAgents}})
+	rows = append(rows, winRow{text: label("Agents") + m.agentSummary(p), to: target{project: p, tab: tabAgents}})
 
 	deploys := target{project: p, tab: tabDeploys}
 	shown := false
@@ -38,22 +38,22 @@ func (m Model) overviewRows() []winRow {
 				head = label("Live")
 			}
 			shown = true
-			rows = append(rows, winRow{head + m.liveCell(t), deploys})
+			rows = append(rows, winRow{text: head + m.liveCell(t), to: deploys})
 		}
 	}
 	if !shown {
-		rows = append(rows, winRow{label("Live") + sDim.Render("not deployed yet, enter to link a platform"), deploys})
+		rows = append(rows, winRow{text: label("Live") + sDim.Render("not deployed yet, enter to link a platform"), to: deploys})
 	}
 
 	github := target{project: p, tab: tabGitHub, sub: svOverview}
 	if d, why := m.repoState(); d != nil {
-		rows = append(rows, winRow{label("GitHub") + strings.Join([]string{
+		rows = append(rows, winRow{text: label("GitHub") + strings.Join([]string{
 			sBold.Render(orDash(d.DefaultBranch)) + " " + ciWord(d.DefaultCI),
 			fmt.Sprintf("%d PRs", d.OpenPRs),
 			fmt.Sprintf("%d issues", d.OpenIssues),
-		}, sDim.Render(" · ")), github})
+		}, sDim.Render(" · ")), to: github})
 	} else if len(why) > 0 {
-		rows = append(rows, winRow{label("GitHub") + why[0], github})
+		rows = append(rows, winRow{text: label("GitHub") + why[0], to: github})
 	}
 
 	if d := m.repoDataFor(p); d != nil {
@@ -63,7 +63,7 @@ func (m Model) overviewRows() []winRow {
 				head = label("Recent")
 			}
 			msg, _, _ := strings.Cut(c.Message, "\n")
-			rows = append(rows, winRow{head + msg + sDim.Render("  "+c.Author+", "+humanAge(c.At)), target{url: c.URL}})
+			rows = append(rows, winRow{text: head + msg + sDim.Render("  "+c.Author+", "+humanAge(c.At)), to: target{url: c.URL}})
 		}
 	}
 	return rows
@@ -127,6 +127,11 @@ func (m Model) handleOverviewKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.openAccounts("")
 	case "p":
 		return m.deployFromOverview()
+	case "f":
+		if len(rows) > 0 && rows[cur].fix != "" {
+			return m.openSpawnWith(m.scope, rows[cur].fix)
+		}
+		m.flash = "nothing here for an agent to fix"
 	case "enter":
 		if len(rows) > 0 {
 			m.goTo(rows[cur].to)

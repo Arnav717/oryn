@@ -50,6 +50,8 @@ type Run struct {
 	Worktree string    `json:"worktree"` // the worktree's root
 	Dir      string    `json:"dir"`      // where the agent runs, under Worktree
 	Branch   string    `json:"branch"`
+	Base     string    `json:"base"` // the commit it started from
+	PR       string    `json:"pr,omitempty"`
 	Started  time.Time `json:"started"`
 }
 
@@ -182,13 +184,17 @@ func Start(project, toolName, task string, now time.Time) (Run, error) {
 		return Run{}, fmt.Errorf("%s isn't a git repo, and agents need one for their own branch", filepath.Base(project))
 	}
 	prefix, _ := run(exec.Command("git", "-C", project, "rev-parse", "--show-prefix"))
+	base, err := git(top, "rev-parse", "HEAD")
+	if err != nil {
+		return Run{}, fmt.Errorf("%s has no commits yet", filepath.Base(project))
+	}
 
 	runs := loadRuns()
 	slug := uniqueSlug(top, slugFor(task), runs)
 	r := Run{
 		Slug: slug, Project: project, Tool: tool.Name, Task: task, Started: now,
 		Worktree: filepath.Join(stateDir, "worktrees", filepath.Base(project), slug),
-		Branch:   "oryn/" + slug,
+		Branch:   "oryn/" + slug, Base: base,
 	}
 	r.Dir = filepath.Join(r.Worktree, prefix)
 	if err := os.MkdirAll(filepath.Dir(r.Worktree), 0o755); err != nil {

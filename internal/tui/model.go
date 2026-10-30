@@ -134,6 +134,9 @@ type Model struct {
 	agOpen   string // ID of the session shown in detail, "" for the list
 	spawn    *spawnForm
 	finder   *finder
+	review   *reviewView
+	shipAsk  *agents.Run // a push and PR waiting for y/n
+	discard  *discardAsk
 	stopAsk  *agents.Run // a stop waiting for y/n
 
 	win    homeWin // focused window on Home
@@ -314,6 +317,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case foundMsg:
 		return m.onFound(msg)
 
+	case reviewMsg:
+		return m.onReview(msg)
+
+	case shippedMsg:
+		return m.onShipped(msg)
+
+	case discardedMsg:
+		return m.onDiscarded(msg)
+
 	case attachedMsg:
 		if msg.err != nil {
 			m.flash = msg.err.Error()
@@ -380,6 +392,15 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.finder != nil {
 		return m.handleFinderKey(k)
+	}
+	if m.discard != nil {
+		return m.handleDiscardKey(k)
+	}
+	if m.shipAsk != nil {
+		return m.handleShipConfirm(k)
+	}
+	if m.review != nil {
+		return m.handleReviewKey(k)
 	}
 	if m.stopAsk != nil {
 		return m.handleStopConfirm(k)

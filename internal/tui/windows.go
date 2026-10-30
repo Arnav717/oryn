@@ -24,6 +24,7 @@ const (
 type winRow struct {
 	text string
 	to   target
+	fix  string // a task to hand an agent, when it's something one can fix
 }
 
 type windowDef struct {
@@ -56,7 +57,7 @@ func needsRows(m *Model) []winRow {
 	}
 	rows := make([]winRow, len(items))
 	for i, it := range items {
-		rows[i] = winRow{m.attnRow(it), it.to}
+		rows[i] = winRow{m.attnRow(it), it.to, it.fix}
 	}
 	return rows
 }
@@ -77,8 +78,8 @@ func deployWinRows(m *Model) []winRow {
 			continue
 		}
 		p := t.Link.Project
-		rows = append(rows, winRow{deployDot(d.State) + " " + pad(filepath.Base(p), 14) + " " + sDim.Render(pad(t.Link.Platform, 11)+shortAgo(m.now.Sub(d.Created))),
-			target{project: p, tab: tabDeploys}})
+		rows = append(rows, winRow{text: deployDot(d.State) + " " + pad(filepath.Base(p), 14) + " " + sDim.Render(pad(t.Link.Platform, 11)+shortAgo(m.now.Sub(d.Created))),
+			to: target{project: p, tab: tabDeploys}})
 	}
 	if len(rows) == 0 {
 		return []winRow{{text: sDim.Render("nothing deployed")}}
@@ -94,7 +95,7 @@ func githubWinRows(m *Model) []winRow {
 	rows := make([]winRow, len(prs))
 	for i, p := range prs {
 		_, ref, _ := strings.Cut(p.Ref(), "/")
-		rows[i] = winRow{pad(ref, 26) + " " + sDim.Render(p.Title), target{url: p.URL}}
+		rows[i] = winRow{text: pad(ref, 26) + " " + sDim.Render(p.Title), to: target{url: p.URL}}
 	}
 	return rows
 }
@@ -176,6 +177,11 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.openAccounts("")
 	case "n":
 		return m.openSpawn()
+	case "f":
+		if r := rows[cur]; r.fix != "" {
+			return m.openSpawnWith(r.to.project, r.fix)
+		}
+		m.flash = "nothing here for an agent to fix"
 	case "D":
 		m.openSection(secDeploys)
 	case "c":

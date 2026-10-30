@@ -105,7 +105,7 @@ func agentWinRows(m *Model) []winRow {
 	var rows []winRow
 	for _, s := range m.watchedAgents() {
 		if s.Active() {
-			rows = append(rows, winRow{agentDot(s.State) + " " + pad(m.agentProject(s), 14) + " " + pad(s.Tool, 9) + sDim.Render(agentTitle(s)), target{section: secAgents}})
+			rows = append(rows, winRow{text: agentDot(s.State) + " " + pad(m.agentProject(s), 14) + " " + pad(s.Tool, 9) + sDim.Render(agentTitle(s)), to: target{section: secAgents}})
 		}
 	}
 	if len(rows) == 0 {
@@ -219,6 +219,9 @@ func (m Model) agentDetail(s agents.Session) []string {
 	}
 	if s.Run != nil {
 		lines = append(lines, row("Branch", s.Run.Branch))
+		if s.Run.PR != "" {
+			lines = append(lines, row("PR", s.Run.PR))
+		}
 		if s.Running {
 			return append(lines, "", sDim.Render("Press a to open its terminal. ctrl+] comes back."))
 		}
@@ -253,7 +256,11 @@ func (m Model) attachAgent() (tea.Model, tea.Cmd) {
 		m.flash = "oryn didn't start this one, so it can't attach. Resume it with: " + s.Resume()
 		return m, nil
 	}
-	return m, tea.ExecProcess(agents.AttachCmd(*s.Run), func(err error) tea.Msg {
+	return m.attachRun(*s.Run)
+}
+
+func (m Model) attachRun(r agents.Run) (tea.Model, tea.Cmd) {
+	return m, tea.ExecProcess(agents.AttachCmd(r), func(err error) tea.Msg {
 		if err != nil {
 			return attachedMsg{errors.New("couldn't attach: " + err.Error())}
 		}
@@ -325,6 +332,12 @@ func (m Model) handleAgentsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.attachAgent()
 		case "x":
 			return m.askStop()
+		case "v":
+			return m.openReview()
+		case "P":
+			return m.askShip()
+		case "X":
+			return m.askDiscard()
 		}
 		return m, nil
 	}
@@ -336,6 +349,12 @@ func (m Model) handleAgentsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.attachAgent()
 	case "x":
 		return m.askStop()
+	case "v":
+		return m.openReview()
+	case "P":
+		return m.askShip()
+	case "X":
+		return m.askDiscard()
 	case "q":
 		return m, tea.Quit
 	case "esc":

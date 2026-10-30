@@ -92,7 +92,10 @@ or idle.
 `n` starts an agent: pick a project and tool, describe the task. It gets its
 own git worktree and branch (`oryn/<task>`) from your last commit, and runs in
 tmux so it keeps going after you quit oryn. `a` opens its live terminal and
-`ctrl+]` comes back. `x` stops it and keeps its work. Agents keep their normal
+`ctrl+]` comes back. `x` stops it and keeps its work. `v` reviews what it
+changed, `P` pushes its branch and opens a PR (with `gh`, after asking), and `X`
+deletes its worktree and local branch once you type its name. On Home or a
+project's Overview, `f` on a failing CI run or deploy starts an agent on it. Agents keep their normal
 approval prompts, and oryn shows an agent as waiting when one is on its screen.
 Claude Code asks you to trust each new worktree once: press `a` and confirm. A
 worktree separates files, it isn't a sandbox. Gitignored
@@ -185,7 +188,6 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- Agents: review their diffs and open PRs from oryn, and hand them a failing build
 - `oryn context` and an MCP server, so agents get a project's state without wandering
 - AI features: daily brief, explain a failed deploy or CI run, changelog impact
 - rollback and promote, live deploy logs
