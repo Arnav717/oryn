@@ -42,7 +42,7 @@ func init() {
 	sections = [numSections]section{
 		secHome: {
 			title: "Home",
-			hints: "tab switch · enter open · f fix · ctrl+p commands",
+			hints: "tab switch · enter open · f fix · x dismiss · z snooze",
 			open:  func(m *Model) { m.screen = screenHome },
 			keys:  Model.handleHomeKey,
 			body:  Model.homeBody,

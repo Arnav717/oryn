@@ -54,15 +54,14 @@ func windowForTab(t projTab) (projWin, bool) {
 }
 
 func projNeedsRows(m *Model) []winRow {
-	items := m.needsFor(m.scope)
-	if len(items) == 0 {
-		return []winRow{{text: sOK.Render("✓") + " " + sDim.Render("all clear")}}
+	var rows []winRow
+	for _, it := range m.needsFor(m.scope) {
+		rows = append(rows, winRow{it.render(), it.to, it.fix, it.key()})
 	}
-	rows := make([]winRow, len(items))
-	for i, it := range items {
-		rows[i] = winRow{it.render(), it.to, it.fix}
+	if len(rows) == 0 {
+		rows = []winRow{{text: sOK.Render("✓") + " " + sDim.Render("all clear")}}
 	}
-	return rows
+	return append(rows, m.hiddenRow(m.scope)...)
 }
 
 func projAgentRows(m *Model) []winRow {
@@ -277,6 +276,16 @@ func (m Model) handleOverviewKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.openSpawnWith(m.scope, rows[cur].fix)
 		}
 		m.flash = "nothing here for an agent to fix"
+	case "x":
+		if len(rows) > 0 {
+			return m.hide(rows[cur], dismissFor, "dismissed until it changes"), nil
+		}
+	case "z":
+		if len(rows) > 0 {
+			return m.hide(rows[cur], snoozeFor, "snoozed for a day"), nil
+		}
+	case "u":
+		return m.unhide(m.scope), nil
 	case "enter":
 		return m.expandWin(), nil
 	}

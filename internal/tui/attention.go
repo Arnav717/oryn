@@ -70,9 +70,25 @@ func (it attnItem) render() string {
 	return sAccent.Render("●") + " " + it.text
 }
 
-// needsYou collects every section's items, worst first, newest first within a
-// severity.
+// key names this item as it stands now. Counts are in the text and times in at,
+// so something new under the same heading has a new key and shows up again.
+func (it attnItem) key() string {
+	return fmt.Sprintf("%s\x00%s\x00%d", it.project, it.text, it.at.Unix())
+}
+
+func (m Model) isHidden(it attnItem) bool {
+	until, ok := m.hidden[it.key()]
+	return ok && until.After(m.now)
+}
+
+// needsYou is what's waiting on you, less what you've set aside.
 func (m Model) needsYou() []attnItem {
+	return slices.DeleteFunc(m.allNeeds(), m.isHidden)
+}
+
+// allNeeds collects every section's items, worst first, newest first within a
+// severity.
+func (m Model) allNeeds() []attnItem {
 	var out []attnItem
 	for _, s := range sections {
 		if s.attention != nil {
@@ -86,6 +102,69 @@ func (m Model) needsYou() []attnItem {
 		return out[i].at.After(out[j].at)
 	})
 	return out
+}
+
+// hiddenNeeds is what's set aside right now. An empty scope means everywhere.
+func (m Model) hiddenNeeds(scope string) []attnItem {
+	return slices.DeleteFunc(m.allNeeds(), func(it attnItem) bool {
+		return !m.isHidden(it) || scope != "" && it.project != scope
+	})
+}
+
+// hiddenRow says how much is set aside, so an empty list can be trusted.
+func (m Model) hiddenRow(scope string) []winRow {
+	n := len(m.hiddenNeeds(scope))
+	if n == 0 {
+		return nil
+	}
+	return []winRow{{text: sDim.Render(fmt.Sprintf("%d set aside, u brings them back", n))}}
+}
+
+const (
+	snoozeFor  = 24 * time.Hour
+	dismissFor = 365 * 24 * time.Hour // its key goes stale long before this
+)
+
+// hide sets a Needs you row aside. It's only local and u undoes it, so it
+// doesn't ask.
+func (m Model) hide(r winRow, d time.Duration, flash string) Model {
+	if r.key == "" {
+		m.flash = "nothing here to set aside"
+		return m
+	}
+	if m.hidden == nil {
+		m.hidden = map[string]time.Time{}
+	}
+	until := m.now.Add(d)
+	m.hidden[r.key] = until
+	m.flash = flash + ", u brings it back"
+	if m.st != nil {
+		if err := m.st.Hide(r.key, until); err != nil {
+			m.flash = err.Error()
+		}
+	}
+	return m
+}
+
+// unhide brings back everything set aside in scope.
+func (m Model) unhide(scope string) Model {
+	items := m.hiddenNeeds(scope)
+	if len(items) == 0 {
+		m.flash = "nothing set aside"
+		return m
+	}
+	keys := make([]string, len(items))
+	for i, it := range items {
+		keys[i] = it.key()
+		delete(m.hidden, keys[i])
+	}
+	m.flash = "brought back"
+	if m.st != nil {
+		if err := m.st.Unhide(keys); err != nil {
+			m.flash = err.Error()
+		}
+	}
+	return m
 }
 
 // needsFor is the part of needsYou that belongs to one project.

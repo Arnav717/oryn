@@ -139,6 +139,8 @@ type Model struct {
 	discard  *discardAsk
 	stopAsk  *agents.Run // a stop waiting for y/n
 
+	hidden map[string]time.Time // Needs you items set aside, until when
+
 	win    homeWin // focused window on Home
 	winCur [numWins]int
 	pwin   projWin // focused window on a project's front page
@@ -208,6 +210,7 @@ func New(cfg *config.Config, st *store.Store) Model {
 	}
 	if st != nil {
 		m.since, _ = st.TouchLastSeen(m.now)
+		m.hidden, _ = st.Hidden(m.now)
 	}
 	m.homeCursor = m.cwdItem()
 	// Show the last refresh right away; the live one replaces it when it lands.

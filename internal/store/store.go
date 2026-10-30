@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS claims (
 	expires INTEGER NOT NULL,
 	PRIMARY KEY (project, path)
 );
+CREATE TABLE IF NOT EXISTS hidden (
+	key   TEXT PRIMARY KEY,
+	until INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS events_entity ON events(kind, entity, ts);
 `

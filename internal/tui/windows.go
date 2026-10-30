@@ -25,6 +25,7 @@ type winRow struct {
 	text string
 	to   target
 	fix  string // a task to hand an agent, when it's something one can fix
+	key  string // a Needs you item's key, when it can be set aside
 }
 
 type windowDef struct {
@@ -51,15 +52,14 @@ func needsRows(m *Model) []winRow {
 	if m.snap == nil {
 		return []winRow{{text: sDim.Render("loading…")}}
 	}
-	items := m.needsYou()
-	if len(items) == 0 {
-		return []winRow{{text: sOK.Render("✓") + " " + sDim.Render("all clear")}}
+	var rows []winRow
+	for _, it := range m.needsYou() {
+		rows = append(rows, winRow{m.attnRow(it), it.to, it.fix, it.key()})
 	}
-	rows := make([]winRow, len(items))
-	for i, it := range items {
-		rows[i] = winRow{m.attnRow(it), it.to, it.fix}
+	if len(rows) == 0 {
+		rows = []winRow{{text: sOK.Render("✓") + " " + sDim.Render("all clear")}}
 	}
-	return rows
+	return append(rows, m.hiddenRow("")...)
 }
 
 // deployWinRows shows what's actually deployed. Links with nothing on them
@@ -182,6 +182,12 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.openSpawnWith(r.to.project, r.fix)
 		}
 		m.flash = "nothing here for an agent to fix"
+	case "x":
+		return m.hide(rows[cur], dismissFor, "dismissed until it changes"), nil
+	case "z":
+		return m.hide(rows[cur], snoozeFor, "snoozed for a day"), nil
+	case "u":
+		return m.unhide(""), nil
 	case "D":
 		m.openSection(secDeploys)
 	case "c":

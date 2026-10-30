@@ -281,7 +281,7 @@ func (m Model) projectHints() string {
 	case tabAgents:
 		return "n new · a attach · v review · x stop · [ ] tabs"
 	case tabOverview:
-		return "tab window · enter expand · p deploy · f fix · [ ] jump"
+		return "tab window · enter expand · f fix · x dismiss · z snooze"
 	case tabDeploys:
 		return "enter open · p deploy · [ ] jump · ctrl+p commands"
 	case tabGitHub:
@@ -578,6 +578,8 @@ func helpLines() []string {
 		sBold.Render("Home"),
 		row("tab / shift+tab, h/l", "next / previous window"),
 		row("enter", "open the selected row"),
+		row("x / z", "Needs you: dismiss until it changes / snooze for a day"),
+		row("u", "Needs you: bring back what you set aside"),
 		"",
 		sBold.Render("Projects"),
 		row("enter", "open the project"),
