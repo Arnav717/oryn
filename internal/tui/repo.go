@@ -257,10 +257,10 @@ func (m Model) subNav() string {
 		if s == m.rsub {
 			parts[s] = sTab.Render(subNames[s])
 		} else {
-			parts[s] = sDim.Render(subNames[s])
+			parts[s] = sTabOff.Render(subNames[s])
 		}
 	}
-	return strings.Join(parts, "  ")
+	return strings.Join(parts, "")
 }
 
 // repoVisible is how many table rows fit under the fixed top lines.
@@ -456,10 +456,10 @@ func (m Model) tabBarView() string {
 		if t == m.tab {
 			parts[t] = sTab.Render(tabNames[t])
 		} else {
-			parts[t] = sDim.Render(tabNames[t])
+			parts[t] = sTabOff.Render(tabNames[t])
 		}
 	}
-	return clip(" "+sBold.Render(filepath.Base(m.scope))+"   "+strings.Join(parts, "  "), m.w)
+	return clip(" "+sBold.Render(filepath.Base(m.scope))+"  "+strings.Join(parts, ""), m.w)
 }
 
 func orDash(s string) string {

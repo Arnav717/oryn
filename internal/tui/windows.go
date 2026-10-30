@@ -123,7 +123,7 @@ func (m Model) homeBody() string {
 }
 
 func (m Model) window(w homeWin, width, height int) string {
-	cw, ch := width-2, height-2
+	cw, ch := width-3, height-2
 	rows := homeWindows[w].rows(&m)
 	focused := w == m.win
 	title := sDim.Bold(true).Render(homeWindows[w].title)
@@ -142,10 +142,7 @@ func (m Model) window(w homeWin, width, height int) string {
 		}
 		lines = append(lines, clip(marker+rows[i].text, cw))
 	}
-	if len(lines) > ch {
-		lines = lines[:ch]
-	}
-	return box(focused).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return panel(lines, width, height, focused)
 }
 
 func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {

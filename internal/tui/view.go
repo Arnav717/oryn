@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/Arnav717/oryn/internal/config"
 	"github.com/Arnav717/oryn/internal/detect"
 	"github.com/Arnav717/oryn/internal/source"
 	"github.com/Arnav717/oryn/internal/store"
@@ -45,14 +46,20 @@ func (m Model) View() string {
 	if m.hasContext() {
 		rows = append(rows, m.context())
 	}
-	if m.tabBarVisible() && !m.showHelp {
+	if m.tabBarVisible() && !m.showHelp && !m.palOpen {
 		rows = append(rows, m.tabBarView())
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, append(rows, m.body(), m.footer())...)
+	out := strings.Split(lipgloss.JoinVertical(lipgloss.Left, append(rows, m.body(), m.footer())...), "\n")
+	for i := range out {
+		out[i] = paint(out[i], bgColor, m.w)
+	}
+	return strings.Join(out, "\n")
 }
 
 func (m Model) body() string {
 	switch {
+	case m.palOpen:
+		return m.paletteBody()
 	case m.showHelp:
 		return m.fullBox(helpLines())
 	case m.screen == screenDeployRun:
@@ -167,9 +174,9 @@ func (m Model) footer() string {
 			hints = "x cancel deploy · ctrl+c quit"
 		}
 		if m.flash == "" {
-			return clip(sDim.Render(hints), m.w)
+			return m.statusLine(hints)
 		}
-		return clip(sAccent.Render(m.flash)+sDim.Render("  │  "+hints), m.w)
+		return m.statusLine(hints)
 	}
 	if m.screen == screenPicker {
 		switch {
@@ -186,14 +193,10 @@ func (m Model) footer() string {
 		if m.tokenEntry {
 			return clip(m.tokenInput.View()+sDim.Render("   enter to verify · esc cancel"), m.w)
 		}
-		hints := sDim.Render("j/k move · enter paste token · b token page · x forget · esc back · q quit")
-		if m.flash == "" {
-			return clip(hints, m.w)
-		}
-		return clip(sAccent.Render(m.flash)+sDim.Render("  │  ")+hints, m.w)
+		return m.statusLine("enter paste token · b token page · x forget · esc back")
 	}
 	if m.screen == screenPicker {
-		return clip(sDim.Render("j/k move · enter link · n new project · esc back · q quit"), m.w)
+		return m.statusLine("enter link · n new project · esc back")
 	}
 	if m.screen == screenProjects {
 		items := m.homeItems()
@@ -208,22 +211,41 @@ func (m Model) footer() string {
 	if m.screen == screenProject {
 		hints = m.projectHints()
 	}
-	if m.flash == "" {
-		return clip(" "+sDim.Render(hints), m.w)
+	return m.statusLine(hints)
+}
+
+// statusLine is the bottom row: where you are, or the latest message, on the
+// left and the keys on the right.
+func (m Model) statusLine(hints string) string {
+	left := sDim.Render(" " + config.ShortHome(orDefault(m.scope, m.cwd)))
+	if m.flash != "" {
+		left = " " + sAccent.Render(m.flash)
 	}
-	return clip(" "+sAccent.Render(m.flash)+sDim.Render("   "+hints), m.w)
+	parts := strings.Split(hints, " · ")
+	for i, h := range parts {
+		cut := strings.LastIndex(h, " ")
+		parts[i] = sBold.Render(h[:max(cut, 0)]) + sDim.Render(h[max(cut, 0):])
+	}
+	right := strings.Join(parts, "  ") + " "
+	if gap := m.w - lipgloss.Width(left) - lipgloss.Width(right); gap > 0 {
+		return left + strings.Repeat(" ", gap) + right
+	}
+	if m.flash != "" {
+		return clip(left, m.w)
+	}
+	return clip(" "+right, m.w)
 }
 
 func (m Model) projectHints() string {
 	switch m.tab {
 	case tabOverview, tabDeploys:
-		return "enter open · p deploy · [ ] tabs · ? help"
+		return "enter open · p deploy · [ ] tabs · ctrl+p commands"
 	case tabGitHub:
-		return "h/l section · enter open · [ ] tabs · ? help"
+		return "h/l section · enter open · [ ] tabs · ctrl+p commands"
 	case tabActivity:
-		return "f filter · enter open · [ ] tabs · ? help"
+		return "f filter · enter open · [ ] tabs · ctrl+p commands"
 	}
-	return "tab pane · / search · [ ] tabs · ? help"
+	return "tab pane · / search · [ ] tabs · ctrl+p commands"
 }
 
 // suggestions lists live package matches for the command input; the first is
@@ -258,7 +280,7 @@ func (m Model) suggestions() string {
 
 func (m Model) pane(p paneID) string {
 	sz := m.paneSize(p)
-	cw, ch := sz.w-2, sz.h-2
+	cw, ch := sz.w-3, sz.h-2
 	rowW := cw - 2 // room for the cursor marker
 
 	sub, rows := m.paneContent(p, rowW)
@@ -283,7 +305,7 @@ func (m Model) pane(p paneID) string {
 	if len(lines) > ch {
 		lines = lines[:ch]
 	}
-	return box(p == m.focus).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return panel(lines, sz.w, sz.h, p == m.focus)
 }
 
 func (m Model) paneTitle(p paneID) string {
@@ -410,17 +432,21 @@ func eventLine(e store.Event) string {
 
 func (m Model) fullBox(lines []string) string {
 	cw, ch := m.w-2, m.h-m.chrome()-2
+	lines = strings.Split(strings.Join(lines, "\n"), "\n") // a row may hold a line break
 	if m.detail != "" {
 		m.detailOff = min(m.detailOff, max(0, len(lines)-ch))
 		lines = lines[m.detailOff:]
 	}
-	if len(lines) > ch {
-		lines = lines[:ch]
+	out := make([]string, 0, ch+2)
+	out = append(out, "")
+	for i := range ch {
+		l := ""
+		if i < len(lines) {
+			l = highlight(clip(lines[i], cw), cw)
+		}
+		out = append(out, " "+l)
 	}
-	for i := range lines {
-		lines[i] = clip(lines[i], cw)
-	}
-	return box(false).Width(cw).Height(ch).Render(strings.Join(lines, "\n"))
+	return strings.Join(append(out, ""), "\n")
 }
 
 func (m Model) detailLines() []string {
@@ -491,6 +517,7 @@ func helpLines() []string {
 		sTitle.Render("Help") + sDim.Render("   any key to close"),
 		"",
 		sBold.Render("Everywhere"),
+		row("ctrl+p", "command palette: every action, every project"),
 		row("1-7", "switch tab: Home, Projects, Agents, Deploys, GitHub, Health, Activity"),
 		row("j/k, ↑/↓", "move"),
 		row("g / G, pgup / pgdn", "top / bottom, page"),

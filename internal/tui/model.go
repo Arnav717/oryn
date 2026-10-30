@@ -159,6 +159,10 @@ type Model struct {
 	cmdMode bool
 	input   textinput.Model
 
+	palOpen  bool // command palette
+	palInput textinput.Model
+	palCur   int
+
 	detail    string // PkgKey of the open DES page, "" when closed
 	detailOff int
 	showHelp  bool
@@ -330,6 +334,13 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(k)
 		return m, cmd
+	}
+
+	if m.palOpen {
+		return m.handlePaletteKey(k)
+	}
+	if k.Type == tea.KeyCtrlP && m.navFree() {
+		return m.openPalette()
 	}
 
 	if m.delAsk != nil {

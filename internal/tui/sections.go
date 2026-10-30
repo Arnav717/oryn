@@ -42,14 +42,14 @@ func init() {
 	sections = [numSections]section{
 		secHome: {
 			title: "Home",
-			hints: "tab switch · enter open · 1-7 tabs · ? help",
+			hints: "tab switch · enter open · ctrl+p commands",
 			open:  func(m *Model) { m.screen = screenHome },
 			keys:  Model.handleHomeKey,
 			body:  Model.homeBody,
 		},
 		secProjects: {
 			title: "Projects",
-			hints: "enter open · a add · d remove · ? help",
+			hints: "enter open · a add · d remove · ctrl+p commands",
 			open: func(m *Model) {
 				m.screen = screenProjects
 				m.clampHome()
@@ -59,14 +59,14 @@ func init() {
 		},
 		secAgents: {
 			title: "Agents",
-			hints: "? help",
+			hints: "ctrl+p commands",
 			open:  func(m *Model) { m.screen = screenAgents },
 			keys:  Model.handleAgentsKey,
 			body:  func(m Model) string { return m.fullBox(agentLines()) },
 		},
 		secDeploys: {
 			title: "Deploys",
-			hints: "enter open · p deploy · A accounts · ? help",
+			hints: "enter open · p deploy · A accounts · ctrl+p commands",
 			open: func(m *Model) {
 				m.screen = screenDeploys
 				m.dpCursor, m.dpOffset = 0, 0
@@ -78,7 +78,7 @@ func init() {
 		},
 		secGitHub: {
 			title: "GitHub",
-			hints: "enter open · ? help",
+			hints: "enter open · ctrl+p commands",
 			open: func(m *Model) {
 				m.screen = screenGitHub
 				m.ghCursor, m.ghOffset = 0, 0
@@ -93,7 +93,7 @@ func init() {
 		},
 		secHealth: {
 			title:     "Health",
-			hints:     "tab pane · / search · ? help",
+			hints:     "tab pane · / search · ctrl+p commands",
 			open:      func(m *Model) { m.openScope("") },
 			attention: healthAttention,
 			keys:      Model.handlePaneKey,
@@ -101,7 +101,7 @@ func init() {
 		},
 		secActivity: {
 			title: "Activity",
-			hints: "f filter · enter open · ? help",
+			hints: "f filter · enter open · ctrl+p commands",
 			open: func(m *Model) {
 				m.screen = screenActivity
 				m.resetActivity()
@@ -169,12 +169,12 @@ func (m Model) tabsLine() string {
 			case id == active:
 				parts[id] = sTab.Render(sections[id].title)
 			case short:
-				parts[id] = sDim.Render(fmt.Sprint(id + 1))
+				parts[id] = sTabOff.Render(fmt.Sprint(id + 1))
 			default:
-				parts[id] = sDim.Render(sections[id].title)
+				parts[id] = sTabOff.Render(sections[id].title)
 			}
 		}
-		return " " + sLogo.Render("oryn") + "   " + strings.Join(parts, "  ")
+		return " " + sLogo.Render("oryn") + "  " + strings.Join(parts, "")
 	}
 	right := m.now.Format("15:04") + " "
 	if m.loading {

@@ -49,7 +49,8 @@ oryn ls · rm · scan · version
 ```
 
 `oryn` opens on Home, with a tab bar that stays on screen everywhere. Keys `1`
-to `7` switch tabs from any screen, and `esc` goes back. `?` lists every key.
+to `7` switch tabs from any screen, `esc` goes back, and `ctrl+p` opens a command
+palette with every action and project. `?` lists every key.
 
 | Key | Tab      | Shows                                                       |
 |-----|----------|-------------------------------------------------------------|
