@@ -25,7 +25,7 @@ make install              # → ~/.local/bin/oryn
 ```
 
 Tagged releases publish archives for Linux, macOS and Windows with a
-`SHA256SUMS` file and GitHub build-provenance attestations:
+`SHA256SUMS` file. Once the repo is public they also carry GitHub build-provenance attestations:
 
 ```sh
 sha256sum -c --ignore-missing SHA256SUMS

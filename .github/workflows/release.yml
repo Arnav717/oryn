@@ -21,6 +21,8 @@ jobs:
       - name: Build
         run: make dist VERSION=${GITHUB_REF_NAME#v}
       - name: Attest build provenance
+        # GitHub only offers attestations on public repos (or paid plans).
+        if: github.event.repository.private == false
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: dist/*
