@@ -102,6 +102,28 @@ worktree separates files, it isn't a sandbox. Gitignored
 files such as `.env` and `node_modules` aren't copied in. Needs tmux, and oryn
 uses a private tmux server so your own sessions aren't touched.
 
+### For AI agents
+
+Agents waste time exploring. `oryn context` gives one a project's stack, the
+commands to run, its layout, git state, CI, deploys, other active agents and
+claimed files in one call, with `--json` for machines. Inside an oryn worktree
+it answers for the project the worktree came from.
+
+`oryn mcp` serves the same over the Model Context Protocol:
+
+```sh
+claude mcp add oryn -- oryn mcp
+codex mcp add oryn -- oryn mcp
+```
+
+Tools: `project_context`, `list_projects`, `list_agents`, `claim_files` and
+`release_files`. Both read local files and oryn's last refresh, so they answer
+instantly and never touch the network. They carry counts and states only, never
+PR titles, issues or logs, because outsiders write those. Nothing here can
+deploy, delete, push or start anything, and claims only touch oryn's own
+database. Claims are a signal between cooperating agents, not a lock on the
+files, and they last two hours.
+
 ### Projects are containers
 
 Opening a project gives you its own tabs (`[` and `]` switch): **Overview**,
@@ -188,7 +210,6 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- `oryn context` and an MCP server, so agents get a project's state without wandering
 - AI features: daily brief, explain a failed deploy or CI run, changelog impact
 - rollback and promote, live deploy logs
 - later: upgrade desk, custom layouts, exec-based custom sources, team sync

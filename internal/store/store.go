@@ -35,6 +35,13 @@ CREATE TABLE IF NOT EXISTS events (
 	ts       INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS claims (
+	project TEXT NOT NULL,
+	path    TEXT NOT NULL,
+	agent   TEXT NOT NULL,
+	expires INTEGER NOT NULL,
+	PRIMARY KEY (project, path)
+);
 CREATE INDEX IF NOT EXISTS events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS events_entity ON events(kind, entity, ts);
 `

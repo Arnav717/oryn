@@ -222,6 +222,17 @@ func Start(project, toolName, task string, now time.Time) (Run, error) {
 	return r, nil
 }
 
+// ProjectOf maps one of oryn's worktrees back to its project, so an agent
+// running in one gets its project's context. Any other folder returns "".
+func ProjectOf(dir string) string {
+	for _, r := range loadRuns() {
+		if dir == r.Worktree || strings.HasPrefix(dir, r.Worktree+string(filepath.Separator)) {
+			return r.Project
+		}
+	}
+	return ""
+}
+
 // Stop ends the agent. Its worktree and branch stay, so nothing is lost.
 func Stop(r Run) error {
 	_, err := run(tmux("kill-session", "-t", "="+r.Slug))
@@ -256,6 +267,7 @@ func panes() map[string]bool {
 // these terminals, so it can see this even for tools that don't record it.
 var asking = []struct{ text, needs string }{
 	{"trust this folder", "Approve this folder: press a and confirm"},
+	{"Do you trust", "Approve this folder: press a and confirm"},
 	{"Do you want to", "Approve a step: press a to answer"},
 	{"Allow command?", "Approve a command: press a to answer"},
 	{"Enter to confirm", "Waiting for a choice: press a to answer"},

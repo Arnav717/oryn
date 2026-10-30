@@ -19,6 +19,7 @@ import (
 	"github.com/Arnav717/oryn/internal/app"
 	"github.com/Arnav717/oryn/internal/config"
 	"github.com/Arnav717/oryn/internal/deploy"
+	"github.com/Arnav717/oryn/internal/mcp"
 	"github.com/Arnav717/oryn/internal/source"
 	"github.com/Arnav717/oryn/internal/store"
 	"github.com/Arnav717/oryn/internal/tui"
@@ -41,6 +42,9 @@ Usage:
   oryn ls           list watched projects
   oryn scan         print a report and exit
   oryn deploys      show where each project deploys (Vercel, Netlify, Cloudflare Pages)
+  oryn context [dir] what an AI agent needs to know about a project (--json for machines)
+  oryn mcp          serve that to AI agents over MCP
+  oryn claim --as NAME PATH...   mark files as being worked on (release to undo)
   oryn daemon       refresh in the background, send desktop alerts
   oryn version      print the version
 
@@ -63,8 +67,16 @@ func main() {
 	fs.Var(&projects, "p", "project directory to watch (repeatable; default: config or current dir)")
 	cfgPath := fs.String("config", config.DefaultPath(), "config file")
 	dbPath := fs.String("db", store.DefaultPath(), "event database")
+	asJSON := fs.Bool("json", false, "machine-readable output (context)")
+	claimant := fs.String("as", "", "who is claiming (claim, release)")
 	fs.Usage = func() { fmt.Fprint(os.Stderr, usage); fs.PrintDefaults() }
+	// Flags may follow the folder: oryn context . --json
+	if cmd == "context" && slices.Contains(args, "--json") {
+		*asJSON = true
+		args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--json" })
+	}
 	fs.Parse(args)
+	args = fs.Args()
 
 	cfg, err := config.Load(*cfgPath)
 	if err != nil {
@@ -72,6 +84,7 @@ func main() {
 	}
 	deploy.SetCredsDir(filepath.Dir(*cfgPath))
 	agents.SetStateDir(filepath.Dir(*dbPath))
+	app.SetCacheDir(filepath.Dir(*dbPath))
 
 	switch cmd {
 	case "add", "a":
@@ -96,7 +109,8 @@ func main() {
 		}
 	}
 	// The TUI's home screen handles "nothing watched"; scan needs something to read.
-	if len(cfg.Projects) == 0 && cmd != "tui" {
+	needsProject := cmd != "tui" && cmd != "context" && cmd != "mcp" && cmd != "claim" && cmd != "release"
+	if len(cfg.Projects) == 0 && needsProject {
 		wd, err := os.Getwd()
 		if err != nil {
 			fatal(err)
@@ -129,6 +143,16 @@ func main() {
 		scan(cfg, st)
 	case "deploys", "deploy":
 		deploys(cfg)
+	case "context":
+		contextCmd(cfg, st, args, *asJSON)
+	case "claim":
+		claimCmd(cfg, st, *claimant, args, false)
+	case "release":
+		claimCmd(cfg, st, *claimant, args, true)
+	case "mcp":
+		if err := mcp.Serve(os.Stdin, os.Stdout, version, mcpTools(cfg, st)); err != nil {
+			fatal(err)
+		}
 	default:
 		fs.Usage()
 		os.Exit(2)

@@ -14,7 +14,7 @@ type Status struct {
 	Indicator   string // none, minor, major, critical, maintenance; "" on error
 	Description string
 	Via         string // package that pulled this service in; "" when configured
-	Err         error
+	Err         error  `json:"-"`
 	Checked     time.Time
 }
 

@@ -17,7 +17,7 @@ type DeployTarget struct {
 	Link        deploy.Link
 	Deployments []deploy.Deployment // newest first
 	LiveURL     string              // public address; "" when unknown
-	Err         error               // deploy.ErrNoCredentials when no token was found
+	Err         error               `json:"-"` // deploy.ErrNoCredentials when no token was found
 	Queryable   bool                // a provider exists and the project is linked
 }
 

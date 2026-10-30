@@ -23,9 +23,9 @@ type Snapshot struct {
 	Status    []source.Status
 	Deploys   []DeployTarget
 	GitHub    *source.GitHubData
-	GitHubErr error                       // source.ErrNoToken when not connected
+	GitHubErr error                       `json:"-"` // source.ErrNoToken when not connected
 	Repos     map[string]*source.RepoData // by project path
-	RepoErrs  map[string]error            // by project path
+	RepoErrs  map[string]error            `json:"-"` // by project path
 	RepoRefs  map[string]gitrepo.Ref      // detected repo per project, even when the fetch failed
 	Events    []store.Event               // newest first, from the store
 	New       []store.Event               // events first recorded by this refresh
@@ -116,6 +116,9 @@ func Refresh(ctx context.Context, cfg *config.Config, st *store.Store) *Snapshot
 			snap.Warnings = append(snap.Warnings, "store: "+err.Error())
 		}
 		snap.Events = evs
+	}
+	if err := SaveCache(snap); err != nil {
+		snap.Warnings = append(snap.Warnings, "cache: "+err.Error())
 	}
 	return snap
 }

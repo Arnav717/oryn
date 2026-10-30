@@ -246,8 +246,10 @@ func TestAgentStuckOnAPromptShowsWaiting(t *testing.T) {
 }
 
 func TestAskedOnOnlyLooksAtTheBottom(t *testing.T) {
-	if askedOn("Do you want to proceed?\n> Yes\n") == "" {
-		t.Error("missed a prompt")
+	for _, prompt := range []string{"Do you want to proceed?\n> Yes\n", "Do you trust the contents of this directory?\n1. Yes\n"} {
+		if askedOn(prompt) == "" {
+			t.Errorf("missed %q", prompt)
+		}
 	}
 	old := "Do you want to proceed?\n" + strings.Repeat("did some work\n", 20)
 	if got := askedOn(old); got != "" {
