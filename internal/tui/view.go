@@ -47,6 +47,8 @@ func (m Model) View() string {
 		body = m.fullBox(helpLines())
 	case m.screen == screenHome:
 		body = m.fullBox(m.homeLines())
+	case m.screen == screenDeployRun:
+		body = m.fullBox(m.runLines())
 	case m.screen == screenAccounts:
 		body = m.fullBox(m.acctLines())
 	case m.screen == screenPicker:
@@ -78,7 +80,9 @@ func (m Model) View() string {
 
 func (m Model) header() string {
 	left := sLogo.Render("ORYN")
-	if m.screen == screenAccounts {
+	if m.screen == screenDeployRun {
+		left += " " + sDim.Render("›") + " " + sBold.Render("deploy") + "  " + sDim.Render(filepath.Base(m.run.project))
+	} else if m.screen == screenAccounts {
 		left += " " + sDim.Render("›") + " " + sBold.Render("accounts")
 	} else if m.screen == screenPicker {
 		left += " " + sDim.Render("›") + " " + sBold.Render("link project")
@@ -178,6 +182,19 @@ func (m Model) footer() string {
 			prompt = sBad.Render("WARNING: "+strings.Join(m.deployAsk.Warn, "; ")+".  ") + prompt
 		}
 		return clip(prompt, m.w)
+	}
+	if m.screen == screenDeployRun && m.run != nil {
+		hints := "enter back · q quit"
+		if m.run.url != "" && m.run.err == nil {
+			hints = "enter back · o open site · q quit"
+		}
+		if m.run.running() {
+			hints = "x cancel deploy · ctrl+c quit"
+		}
+		if m.flash == "" {
+			return clip(sDim.Render(hints), m.w)
+		}
+		return clip(sAccent.Render(m.flash)+sDim.Render("  │  "+hints), m.w)
 	}
 	if m.screen == screenPicker {
 		switch {

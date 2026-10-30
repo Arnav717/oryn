@@ -70,6 +70,7 @@ const (
 	screenDeploys
 	screenAccounts
 	screenPicker
+	screenDeployRun
 	screenGitHub
 )
 
@@ -115,7 +116,9 @@ type Model struct {
 	createInput   textinput.Model
 
 	deployAsk *deploy.Command // a deploy waiting for y/n
-	keepFlash string          // result message that must survive the refresh it triggers
+	run       *deployRun      // the deploy shown on the progress screen
+	runBack   screen
+	keepFlash string // result message that must survive the refresh it triggers
 
 	ghCursor int
 	ghOffset int
@@ -260,14 +263,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.linkTo(msg.ref, "created")
 
-	case deployDoneMsg:
-		if msg.err != nil {
-			m.flash = msg.platform + " deploy failed: " + msg.err.Error()
-		} else {
-			m.flash = "deploy finished"
-		}
-		m.keepFlash = m.flash
-		return m, m.startRefresh()
+	case runEventMsg:
+		return m.onRunEvent(msg)
 
 	case projectsMsg:
 		if m.screen == screenPicker && msg.platform == m.pickTarget.Link.Platform {
@@ -298,6 +295,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if k.String() == "ctrl+c" {
+		if m.run != nil && m.run.running() {
+			m.run.cancel() // don't leave a deploy process orphaned
+		}
 		return m, tea.Quit
 	}
 
@@ -342,6 +342,8 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleAccountsKey(k)
 	case screenPicker:
 		return m.handlePickerKey(k)
+	case screenDeployRun:
+		return m.handleRunKey(k)
 	}
 
 	if m.screen == screenProject && m.tab == tabDeploys {

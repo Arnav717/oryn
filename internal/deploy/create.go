@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/Arnav717/oryn/internal/source"
@@ -200,17 +199,10 @@ func (c Command) Installed() bool {
 	return err == nil
 }
 
-// Cmd builds the runnable command. On Unix it is wrapped so the terminal
-// stays on the CLI's output until Enter is pressed: oryn redraws its own
-// screen the moment the process exits, which would wipe the build log.
-func (c Command) Cmd() *exec.Cmd {
-	cmd := exec.Command(c.Bin, c.Args...)
-	if runtime.GOOS != "windows" {
-		cmd = exec.Command("sh", "-c",
-			`"$@"; code=$?; printf '\n[oryn] %s exited with status %s. Press Enter to return to oryn. ' "$1" "$code"; read _; exit $code`,
-			"sh", c.Bin)
-		cmd.Args = append(cmd.Args, c.Args...)
-	}
+// Cmd builds the runnable command; ctx cancels the process. Stdin is closed so
+// a CLI that wants to prompt (login, confirmations) fails instead of hanging.
+func (c Command) Cmd(ctx context.Context) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, c.Bin, c.Args...)
 	cmd.Dir = c.Dir
 	cmd.Env = append(os.Environ(), c.Env...)
 	return cmd

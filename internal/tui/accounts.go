@@ -334,11 +334,6 @@ func createCmd(platform, name string) tea.Cmd {
 
 // --- deploy (publish) ---
 
-type deployDoneMsg struct {
-	platform string
-	err      error
-}
-
 // askDeploy shows what would run and waits for confirmation; nothing is
 // executed until the user presses y.
 func (m Model) askDeploy(t app.DeployTarget) (tea.Model, tea.Cmd) {
@@ -362,6 +357,14 @@ func (m Model) handleDeployConfirm(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.flash = "cancelled, nothing deployed"
 		return m, nil
 	}
-	m.flash = "deploying…"
-	return m, tea.ExecProcess(cmd.Cmd(), func(err error) tea.Msg { return deployDoneMsg{cmd.Bin, err} })
+	return m.beginDeploy(*cmd, m.deployPlatformFor(cmd))
+}
+
+// deployPlatformFor names the platform a CLI command belongs to.
+func (m Model) deployPlatformFor(c *deploy.Command) string {
+	switch c.Bin {
+	case "wrangler":
+		return "cloudflare"
+	}
+	return c.Bin
 }
