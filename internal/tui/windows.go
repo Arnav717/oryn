@@ -14,6 +14,7 @@ type homeWin int
 
 const (
 	winNeeds homeWin = iota
+	winAgents
 	winDeploys
 	winGitHub
 	numWins
@@ -36,6 +37,7 @@ var homeWindows [numWins]windowDef
 func init() {
 	homeWindows = [numWins]windowDef{
 		winNeeds:   {"Needs you", secHome, needsRows},
+		winAgents:  {"Agents", secAgents, agentWinRows},
 		winDeploys: {"Deploys", secDeploys, deployWinRows},
 		winGitHub:  {"GitHub", secGitHub, githubWinRows},
 	}
@@ -97,9 +99,9 @@ func githubWinRows(m *Model) []winRow {
 	return rows
 }
 
-// homeBody lays the windows out to fit: Needs you beside the others when
-// there's room, stacked on a narrow terminal, and only the focused one when
-// they'd be too short to read.
+// homeBody lays the windows out to fit: two by two when there's room, stacked
+// on a narrow terminal, and only the focused one when they'd be too short to
+// read.
 func (m Model) homeBody() string {
 	avail := m.h - m.chrome()
 	const minStacked = 6 // margin, title, gap and two rows
@@ -107,8 +109,9 @@ func (m Model) homeBody() string {
 	case m.w >= 100:
 		lw, rw := m.w/2, m.w-m.w/2
 		th, bh := avail/2, avail-avail/2
-		return lipgloss.JoinHorizontal(lipgloss.Top, m.window(winNeeds, lw, avail),
-			lipgloss.JoinVertical(lipgloss.Left, m.window(winDeploys, rw, th), m.window(winGitHub, rw, bh)))
+		return lipgloss.JoinVertical(lipgloss.Left,
+			lipgloss.JoinHorizontal(lipgloss.Top, m.window(winNeeds, lw, th), m.window(winAgents, rw, th)),
+			lipgloss.JoinHorizontal(lipgloss.Top, m.window(winDeploys, lw, bh), m.window(winGitHub, rw, bh)))
 	case avail/int(numWins) >= minStacked:
 		parts := make([]string, numWins)
 		left := avail

@@ -24,6 +24,8 @@ func (m Model) overviewRows() []winRow {
 		rows = append(rows, winRow{head + it.render(), it.to})
 	}
 
+	rows = append(rows, winRow{label("Agents") + m.agentSummary(p), target{project: p, tab: tabAgents}})
+
 	deploys := target{project: p, tab: tabDeploys}
 	shown := false
 	if m.snap != nil {

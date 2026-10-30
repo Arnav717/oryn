@@ -54,9 +54,9 @@ palette with every action and project. `?` lists every key.
 
 | Key | Tab      | Shows                                                       |
 |-----|----------|-------------------------------------------------------------|
-| `1` | Home     | Three windows: Needs you, Deploys, GitHub                   |
+| `1` | Home     | Four windows: Needs you, Agents, Deploys, GitHub            |
 | `2` | Projects | Every watched project; `enter` opens one, `a` adds, `d` removes |
-| `3` | Agents   | Coming soon: AI agents working across your projects         |
+| `3` | Agents   | Every AI agent on this machine: who is waiting on you, what is running |
 | `4` | Deploys  | Every deployment on every platform                          |
 | `5` | GitHub   | Your inbox: PRs to review, your own PRs                     |
 | `6` | Health   | Dependencies, vulnerabilities, outdated packages, upstream status for all projects |
@@ -77,10 +77,21 @@ vulnerabilities folded by package, `enter` opens the event.
 On Health: `tab` switch pane · `enter` open package · `/` search (`lod`, `chi`;
 `tab` completes, `enter` opens).
 
+### Agents
+
+oryn reads what Claude Code, Codex, OpenCode and Antigravity (`agy`) leave on
+this machine and shows every session from the last week, most urgent first.
+It only reads: it never writes to those tools' files, and nothing leaves your
+machine. `enter` shows a session and the command to resume it. A session
+waiting on you also lands in Needs you. These are private formats that can
+change, so a tool oryn can't read simply doesn't appear. Codex and OpenCode
+don't record when they're waiting for approval, so they only show as working
+or idle.
+
 ### Projects are containers
 
 Opening a project gives you its own tabs (`[` and `]` switch): **Overview**,
-**Deploys**, **GitHub**, **Health** and **Activity**. It opens on Overview: what needs you
+**Agents**, **Deploys**, **GitHub**, **Health** and **Activity**. It opens on Overview: what needs you
 here, where it's live, GitHub state and recent commits. `enter` opens
 the detail for a row, `p` deploys, `D` and `g` jump to Deploys and GitHub. The
 GitHub tab is read from the folder's git remote (`origin` first); no setup needed. It has eight sections
@@ -163,7 +174,7 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- Agents: see every AI agent across your projects, then start, stop and review them
+- Agents: start, stop and review them from oryn
 - `oryn context` and an MCP server, so agents get a project's state without wandering
 - AI features: daily brief, explain a failed deploy or CI run, changelog impact
 - rollback and promote, live deploy logs

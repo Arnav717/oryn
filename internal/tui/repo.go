@@ -20,6 +20,7 @@ type projTab int
 
 const (
 	tabOverview projTab = iota
+	tabAgents
 	tabDeploys
 	tabGitHub
 	tabHealth
@@ -27,7 +28,7 @@ const (
 	numTabs
 )
 
-var tabNames = [numTabs]string{"Overview", "Deploys", "GitHub", "Health", "Activity"}
+var tabNames = [numTabs]string{"Overview", "Agents", "Deploys", "GitHub", "Health", "Activity"}
 
 // subView is a section of the GitHub tab.
 type subView int
@@ -79,6 +80,9 @@ func (m *Model) setTab(t projTab) {
 	}
 	if t == tabActivity {
 		m.resetActivity()
+	}
+	if t == tabAgents {
+		m.agCursor, m.agOffset, m.agOpen = 0, 0, ""
 	}
 	m.repoClamp()
 }

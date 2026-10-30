@@ -131,13 +131,16 @@ func TestHomeLayoutFitsSize(t *testing.T) {
 
 func TestWindowKeysAndEnter(t *testing.T) {
 	m := busyModel()
-	if got := press(t, m, "tab", "tab"); got.win != winGitHub {
+	if got := press(t, m, "tab", "tab"); got.win != winDeploys {
 		t.Errorf("tab,tab -> window %d", got.win)
 	}
 	if got := press(t, m, "shift+tab"); got.win != winGitHub {
 		t.Errorf("shift+tab wraps -> window %d", got.win)
 	}
-	got := press(t, m, "tab", "enter")
+	if got := press(t, m, "tab", "enter"); got.screen != screenAgents {
+		t.Errorf("enter on the empty Agents window -> screen %d", got.screen)
+	}
+	got := press(t, m, "tab", "tab", "enter")
 	if got.screen != screenProject || got.scope != "/code/b" || got.tab != tabDeploys {
 		t.Errorf("enter on deploy row -> screen %d scope %q tab %d", got.screen, got.scope, got.tab)
 	}
@@ -209,7 +212,7 @@ func TestOverviewEnterOpensTheTab(t *testing.T) {
 		}
 	}
 	first := press(t, m, "]")
-	if first.tab != tabDeploys {
+	if first.tab != tabAgents {
 		t.Errorf("] from overview -> %d", first.tab)
 	}
 }

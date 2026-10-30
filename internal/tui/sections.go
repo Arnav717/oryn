@@ -59,10 +59,14 @@ func init() {
 		},
 		secAgents: {
 			title: "Agents",
-			hints: "ctrl+p commands",
-			open:  func(m *Model) { m.screen = screenAgents },
-			keys:  Model.handleAgentsKey,
-			body:  func(m Model) string { return m.fullBox(agentLines()) },
+			hints: "enter details · ctrl+p commands",
+			open: func(m *Model) {
+				m.screen = screenAgents
+				m.agCursor, m.agOffset, m.agOpen = 0, 0, ""
+			},
+			attention: agentAttention,
+			keys:      Model.handleAgentsKey,
+			body:      func(m Model) string { return m.fullBox(m.agentBody()) },
 		},
 		secDeploys: {
 			title: "Deploys",
@@ -189,27 +193,6 @@ func (m Model) tabsLine() string {
 		return clip(left, m.w)
 	}
 	return left + strings.Repeat(" ", gap) + sDim.Render(right)
-}
-
-func (m Model) handleAgentsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch k.String() {
-	case "q":
-		return m, tea.Quit
-	case "esc":
-		m.openSection(secHome)
-	case "?":
-		m.showHelp = true
-	case "r":
-		return m, m.startRefresh()
-	}
-	return m, nil
-}
-
-func agentLines() []string {
-	return []string{
-		"",
-		sDim.Render("Coming soon: every AI agent working across your projects."),
-	}
 }
 
 // deployCell is a project's latest production deploy in one short cell.

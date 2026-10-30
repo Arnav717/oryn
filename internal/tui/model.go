@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/Arnav717/oryn/internal/agents"
 	"github.com/Arnav717/oryn/internal/app"
 	"github.com/Arnav717/oryn/internal/config"
 	"github.com/Arnav717/oryn/internal/deploy"
@@ -81,6 +82,8 @@ type clockMsg time.Time
 
 type autoRefreshMsg struct{}
 
+type agentsMsg struct{ list []agents.Session }
+
 type Model struct {
 	cfg *config.Config
 	st  *store.Store
@@ -123,6 +126,11 @@ type Model struct {
 	run       *deployRun      // the deploy shown on the progress screen
 	runBack   screen
 	keepFlash string // result message that must survive the refresh it triggers
+
+	agents   []agents.Session
+	agCursor int
+	agOffset int
+	agOpen   string // ID of the session shown in detail, "" for the list
 
 	win    homeWin // focused window on Home
 	winCur [numWins]int
@@ -198,7 +206,7 @@ func New(cfg *config.Config, st *store.Store) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.refresh(), clock(), m.spin.Tick, m.autoRefresh())
+	return tea.Batch(m.refresh(), clock(), m.spin.Tick, m.autoRefresh(), readAgents)
 }
 
 func (m Model) refresh() tea.Cmd {
@@ -287,6 +295,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pickLoading, m.pickItems, m.pickErr = false, msg.items, msg.err
 		}
 		return m, nil
+
+	case agentsMsg:
+		m.agents = msg.list
+		m.agClamp()
+		return m, tea.Tick(agentPoll, func(time.Time) tea.Msg { return readAgents() })
 
 	case clockMsg:
 		m.now = time.Time(msg)
@@ -387,6 +400,8 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch m.tab {
 		case tabOverview:
 			return m.handleOverviewKey(k)
+		case tabAgents:
+			return m.handleAgentsKey(k)
 		case tabDeploys:
 			return m.handleDeployKey(k)
 		case tabGitHub:

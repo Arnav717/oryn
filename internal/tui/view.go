@@ -72,6 +72,8 @@ func (m Model) body() string {
 		return m.fullBox(m.detailLines())
 	case m.screen == screenProject && m.tab == tabOverview:
 		return m.overviewBody()
+	case m.screen == screenProject && m.tab == tabAgents:
+		return m.fullBox(m.agentBody())
 	case m.screen == screenProject && m.tab == tabDeploys:
 		return m.fullBox(m.deployBody())
 	case m.screen == screenProject && m.tab == tabGitHub:
@@ -211,6 +213,9 @@ func (m Model) footer() string {
 	if m.screen == screenProject {
 		hints = m.projectHints()
 	}
+	if m.agOpen != "" && (m.screen == screenAgents || m.tab == tabAgents) {
+		hints = "esc back · ctrl+p commands"
+	}
 	return m.statusLine(hints)
 }
 
@@ -238,6 +243,8 @@ func (m Model) statusLine(hints string) string {
 
 func (m Model) projectHints() string {
 	switch m.tab {
+	case tabAgents:
+		return "enter details · [ ] tabs · ctrl+p commands"
 	case tabOverview, tabDeploys:
 		return "enter open · p deploy · [ ] tabs · ctrl+p commands"
 	case tabGitHub:
@@ -525,6 +532,9 @@ func helpLines() []string {
 		row("r", "refresh now"),
 		row("q", "quit"),
 		"",
+		sBold.Render("Agents"),
+		row("enter", "details: what it's doing, and the command to resume it"),
+		"",
 		sBold.Render("Activity"),
 		row("f", "filter: all, deploys, github, health"),
 		row("e", "expand / fold vulnerabilities grouped by package"),
@@ -537,7 +547,7 @@ func helpLines() []string {
 		row("enter", "open the project"),
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
-		row("[  ]", "inside a project: previous / next tab (Overview, Deploys, GitHub, Health, Activity)"),
+		row("[  ]", "inside a project: previous / next tab (Overview, Agents, Deploys, GitHub, Health, Activity)"),
 		row("h/l", "GitHub tab: Overview, PRs, Issues, Actions, Commits, People, Releases, Alerts"),
 		row("enter / o", "GitHub tab: open the selected row / the repo in your browser"),
 		row("p  D  g", "Overview tab: deploy · Deploys tab · GitHub tab"),
