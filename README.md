@@ -5,21 +5,24 @@
 See what needs you, run agents side by side, ship their work, deploy, and keep
 an eye on GitHub, all from one keyboard-driven screen.
 
-Local-first: no account, no server, no telemetry. Your code never leaves your
-machine. oryn talks directly to the services you connect, and sends only
-package names and versions to public APIs (OSV, npm, PyPI, Go proxy).
-
 ```
  ◆ oryn  Home  Projects  Agents  Deploys  GitHub  Health  Activity         16:27
 ┌─ Needs you ─────────────────────────┐┌─ Agents ─────────────────────────────┐
-│▌ devdoq   ● CI is failing on main   ││  ● portfolio  claude  fix the footer │
-│  devdoq   ● 9 issues assigned to you││                                      │
+│▌ api      ● CI is failing on main   ││  ● web     claude  fix the footer    │
+│  web      ● codex is waiting on you ││  ● api     codex   add rate limits   │
 └─────────────────────────────────────┘└──────────────────────────────────────┘
 ┌─ Deploys ───────────────────────────┐┌─ GitHub ─────────────────────────────┐
-│  ● portfolio  cloudflare 2h         ││  devdoq-workers#28   Observability   │
+│  ● web    cloudflare 2h             ││  api#28     Add request tracing      │
 └─────────────────────────────────────┘└──────────────────────────────────────┘
- /data/oryn                         tab switch  enter open  ctrl+p commands
+ ~/code/web                         tab switch  enter open  ctrl+p commands
 ```
+
+Local-first: no account, no server, no telemetry. Your code never leaves your
+machine. oryn talks directly to the services you connect, and sends only package
+names and versions to public APIs (OSV, npm, PyPI, Go proxy).
+
+> oryn is young and developed on Linux. CI builds it for macOS and Windows, but
+> those aren't tested day to day. Bug reports are very welcome.
 
 ## What it does
 
@@ -32,20 +35,63 @@ package names and versions to public APIs (OSV, npm, PyPI, Go proxy).
 - **Health:** vulnerabilities, outdated packages and upstream status, kept out of your way.
 - **Find projects:** list every repo in a folder and pick which to watch.
 
+## Results
+
+Measured on real projects, on one machine. These are small samples, so treat
+them as a guide rather than a benchmark.
+
+**Getting an agent up to speed.** Claude Code (Sonnet, headless and read-only)
+was asked for a project's commands, CI state, deploys and other agents, in a real
+373-file project. Median of 3 runs each:
+
+| | Without oryn | With oryn |
+|---|---|---|
+| Time | 20s | **6s** |
+| Context read | 49,900 tokens | **21,300 tokens** |
+| Output written | 1,077 tokens | **359 tokens** |
+| Tool calls | 3 | **2** |
+| Cost per run | $0.052 | $0.049 |
+
+Answers came about three times faster with under half the context, while cost
+barely changed. Without oryn, Claude gave more detail on the CI failure, such as
+the failing commit, because it read the runs itself. Expect a smaller share of
+savings on long tasks, where orientation is only the start of the work.
+
+**Knowing who else is working.** Asked whether another agent was active in a
+repo, Claude without oryn checked the process list and could only say "probably
+yes", with the task unknown. With oryn it named the agent and its task in one call.
+
+**A task end to end.** Started from oryn on a throwaway repo with a real bug,
+Claude Code found it, fixed it, ran the tests and committed on its own branch in
+about a minute, leaving the original checkout untouched. oryn followed it from
+waiting to working to idle, and flagged a prompt the agent was stuck on.
+
+**Speed.** With 14 watched projects and 2,800 dependencies:
+
+| | Before caching | Now |
+|---|---|---|
+| Opening with data on screen | waited for a full refresh | **93ms** |
+| Refresh | 12–16s | **about 2s** |
+
 ## Install
 
-oryn needs Go to build. Agents also need `tmux`, and opening PRs needs `gh`.
+You need Go (see `go.mod` for the version). Agents also need `tmux`, and opening
+PRs needs [`gh`](https://cli.github.com).
+
+```sh
+go install github.com/Arnav717/oryn/cmd/oryn@latest
+```
+
+Or from a clone, which installs to `~/.local/bin`:
 
 ```sh
 git clone https://github.com/Arnav717/oryn
 cd oryn
-make install              # → ~/.local/bin/oryn
+make install
 ```
 
-Tagged releases publish archives for Linux, macOS and Windows with a
-`SHA256SUMS` file. Running agents needs tmux, so that part doesn't work on
-native Windows. Once the repo is public, releases also carry GitHub
-build-provenance attestations:
+Tagged releases publish archives for Linux, macOS and Windows with a `SHA256SUMS`
+file and GitHub build-provenance attestations:
 
 ```sh
 sha256sum -c --ignore-missing SHA256SUMS
@@ -55,194 +101,218 @@ gh attestation verify oryn_<version>_linux_amd64.tar.gz --repo Arnav717/oryn
 ## Quick start
 
 ```sh
-oryn                 # open it, then press 2 and f to find your repos
+oryn
 ```
 
-Press `3` then `n` to start an agent, and `ctrl+p` for every action.
+1. Press `2`, then `f`, and pick the repos you want to watch.
+2. Press `A` to connect Vercel, Netlify or Cloudflare if you deploy there. For GitHub, oryn uses your `gh auth login`.
+3. Press `3`, then `n`, to start an agent on a task.
+4. Press `ctrl+p` any time to find an action or project.
 
-## Use
-
-```sh
-oryn                 # open the terminal
-oryn add [dir]       # watch a project
-oryn rm [dir]        # stop watching one
-oryn context [dir]   # what an agent needs to know (--json for machines)
-oryn mcp             # serve that over MCP
-oryn claim --as NAME PATH...   # mark files as being worked on
-oryn release --as NAME         # give them back
-oryn daemon          # background refresh + desktop alerts
-oryn ls · scan · deploys · version
-```
-
-`oryn` opens on Home, with a tab bar that stays on screen everywhere. Keys `1`
-to `7` switch tabs from any screen, `esc` goes back, and `ctrl+p` opens a command
-palette with every action and project. `?` lists every key.
-
-| Key | Tab      | Shows                                                       |
-|-----|----------|-------------------------------------------------------------|
-| `1` | Home     | Four windows: Needs you, Agents, Deploys, GitHub            |
-| `2` | Projects | Every watched project; `enter` opens one, `a` adds, `d` removes |
-| `3` | Agents   | Every AI agent on this machine: who is waiting on you, what is running |
-| `4` | Deploys  | Every deployment on every platform                          |
-| `5` | GitHub   | Your inbox: PRs to review, your own PRs                     |
-| `6` | Health   | Dependencies, vulnerabilities, outdated packages, upstream status for all projects |
-| `7` | Activity | Timeline of everything: what's new since you last looked, then earlier events |
-
-On Projects: `f` lists every git repo in a folder, GitHub ones first, up to
-three levels down. `space` picks one, `a` picks all, `enter` starts watching
-them. `oryn add` does the same for a single folder.
-
-Everywhere: `j/k` move · `r` refresh · `?` help · `q` quit.
-
-On Home: `tab` or `h/l` switch window · `enter` opens the selected row. **Needs
-you** ranks what's waiting on you: failed deploys, failing CI, PRs to review,
-assigned issues and critical vulnerabilities that are new since your last
-visit. Known vulnerabilities and upstream outages stay on Health.
-Windows stack on a narrow terminal, and a very short one shows only the focused
-window.
-
-On Activity: `f` filters (all, deploys, github, health), `e` expands
-vulnerabilities folded by package, `enter` opens the event.
-
-On Health: `tab` switch pane · `enter` open package · `/` search (`lod`, `chi`;
-`tab` completes, `enter` opens).
-
-### Agents
-
-oryn reads what Claude Code, Codex, OpenCode and Antigravity (`agy`) leave on
-this machine and shows the last week's sessions in your watched projects, most
-urgent first.
-It only reads: it never writes to those tools' files, and nothing leaves your
-machine. `enter` shows a session and the command to resume it. A session
-waiting on you also lands in Needs you. These are private formats that can
-change, so a tool oryn can't read simply doesn't appear. Codex and OpenCode
-don't record when they're waiting for approval, so they only show as working
-or idle.
-
-`n` starts an agent: pick a project and tool, describe the task. It gets its
-own git worktree and branch (`oryn/<task>`) from your last commit, and runs in
-tmux so it keeps going after you quit oryn. `a` opens its live terminal and
-`ctrl+]` comes back. `x` stops it and keeps its work. `v` reviews what it
-changed, `P` pushes its branch and opens a PR (with `gh`, after asking), and `X`
-deletes its worktree and local branch once you type its name. On Home or a
-project's Overview, `f` on a failing CI run or deploy starts an agent on it. Agents keep their normal
-approval prompts, and oryn shows an agent as waiting when one is on its screen.
-Claude Code asks you to trust each new worktree once: press `a` and confirm. A
-worktree separates files, it isn't a sandbox. Gitignored
-files such as `.env` and `node_modules` aren't copied in. Needs tmux, and oryn
-uses a private tmux server so your own sessions aren't touched.
-
-### For AI agents
-
-Agents waste time exploring. `oryn context` gives one a project's stack, the
-commands to run, its layout, git state, CI, deploys, other active agents and
-claimed files in one call, with `--json` for machines. Inside an oryn worktree
-it answers for the project the worktree came from.
-
-`oryn mcp` serves the same over the Model Context Protocol:
+To give your agents project context:
 
 ```sh
 claude mcp add oryn -- oryn mcp
 codex mcp add oryn -- oryn mcp
 ```
 
-Tools: `project_context`, `list_projects`, `list_agents`, `claim_files` and
-`release_files`. Both read local files and oryn's last refresh, so they answer
-instantly and never touch the network. They carry counts and states only, never
-PR titles, issues or logs, because outsiders write those. Nothing here can
-deploy, delete, push or start anything, and claims only touch oryn's own
-database. Claims are a signal between cooperating agents, not a lock on the
-files, and they last two hours.
+## Commands
 
-### Projects are containers
+```sh
+oryn                           # open the terminal
+oryn add [dir]                 # watch a project
+oryn rm [dir]                  # stop watching one
+oryn ls                        # list watched projects
+oryn context [dir]             # what an agent needs to know (--json for machines)
+oryn mcp                       # serve that over MCP
+oryn claim --as NAME PATH...   # mark files as being worked on
+oryn release --as NAME [PATH]  # give them back
+oryn scan                      # print a report and exit
+oryn deploys                   # show where each project deploys
+oryn daemon                    # background refresh and desktop alerts
+oryn version
+```
 
-Opening a project gives you its own tabs (`[` and `]` switch): **Overview**,
-**Agents**, **Deploys**, **GitHub**, **Health** and **Activity**. It opens on Overview: what needs you
-here, where it's live, GitHub state and recent commits. `enter` opens
-the detail for a row, `p` deploys, `D` and `g` jump to Deploys and GitHub. The
-GitHub tab is read from the folder's git remote (`origin` first); no setup needed. It has eight sections
-(`h`/`l`):
+## Finding your way around
 
-| Section  | Shows                                                         |
-|----------|---------------------------------------------------------------|
-| Overview | stars, forks, default-branch CI, latest release/commit/run, and a **Needs attention** list (failing CI, PRs awaiting your review, issues assigned to you, critical alerts) |
-| PRs      | open PRs with CI, review state, author, age                   |
-| Issues   | open issues with labels, comments, author, age                |
-| Actions  | recent workflow runs and their status                         |
-| Commits  | recent commits on the default branch                          |
-| People   | collaborators with their role, plus contributors with commit counts |
-| Releases | recent releases                                               |
-| Alerts   | open Dependabot alerts (needs admin access to the repo)       |
+A tab bar stays on screen everywhere. `1`-`7` switch tabs, `j/k` move, `enter`
+opens, `esc` goes back, `r` refreshes, `?` lists every key and `q` quits.
+`ctrl+p` opens a command palette with every tab, project and action.
 
-`enter` opens the selected row in your browser, `o` opens the repo.
+| Key | Tab | Shows |
+|---|---|---|
+| `1` | Home | Four windows: Needs you, Agents, Deploys, GitHub |
+| `2` | Projects | Your watched projects. `enter` opens one, `f` finds repos in a folder, `a` adds, `d` removes |
+| `3` | Agents | Agents in your watched projects: waiting on you, running, recent |
+| `4` | Deploys | Every deployment on every platform |
+| `5` | GitHub | Your inbox: PRs to review and your own PRs |
+| `6` | Health | Packages, vulnerabilities and upstream status for all projects |
+| `7` | Activity | What's new since you last looked, then earlier events. `f` filters, `e` expands |
 
-If a folder's remote isn't GitHub (or you want a different repo), map it:
+**Needs you** ranks failed deploys, failing CI, PRs to review, assigned issues,
+agents waiting on you, and critical vulnerabilities that are new since your last
+visit. Known vulnerabilities and upstream outages stay on Health.
+
+**A project** has its own tabs, switched with `[` and `]`: Overview, Agents,
+Deploys, GitHub, Health and Activity. Overview shows what needs you there, where
+it's live, GitHub state and recent commits. `p` deploys, and `f` hands a failure
+to an agent.
+
+**The GitHub tab** in a project is read from the folder's git remote, with no
+setup. `h/l` moves through Overview, PRs, Issues, Actions, Commits, People,
+Releases and Dependabot Alerts, and `enter` opens a row in your browser. If a
+folder's remote isn't the repo you want, map it in the config:
 
 ```toml
 [repos]
 "~/code/app" = "owner/name"
 ```
 
-### GitHub inbox
+## Agents
 
-The **GitHub** tab lists PRs waiting on
-your review and your own open PRs across every repo, with CI state, review
-state and age. Your own PRs are sorted so failing CI and requested changes
-come first. `enter` opens the PR in your browser.
+### Watching them
 
-oryn reads your login from the GitHub CLI (`gh auth login`) or `GH_TOKEN` /
-`GITHUB_TOKEN`. It stores nothing, and the token is only sent to
-`api.github.com`. Set `github = false` in the config to turn it off.
+oryn reads what each tool leaves on your machine and shows the last week's
+sessions in your watched projects, most urgent first. `enter` shows a session and
+how to get back to it. oryn never writes to those tools' files, and nothing
+leaves your machine.
 
-### Background alerts
+| Tool | Detected states |
+|---|---|
+| Claude Code | waiting, working, idle, done, failed |
+| Antigravity (`agy`) | waiting, working, idle, failed |
+| Codex | working, idle |
+| OpenCode | working, idle |
 
-`oryn daemon` re-scans on the refresh interval and sends a desktop
-notification for new high/critical vulnerabilities, upstream status changes,
-new review requests, failing CI, and new issues or PRs from other people on
-your watched repos. A repo you've just added is a silent baseline, so its
-existing issues don't all fire at once (`notify-send` on Linux, `osascript` on macOS). The first run records
-a silent baseline so you aren't flooded with everything that already exists.
-Run it at login with the systemd unit in `contrib/oryn.service`.
+For agents oryn started, it also reads the terminal screen, so it sees any tool
+stuck on a prompt it recognizes. These are private file formats that can change.
+A tool oryn can't read simply doesn't appear.
 
-## What it watches
+### Running them
 
-| Pane      | Source                                             |
-|-----------|----------------------------------------------------|
-| Packages  | `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.mod`, `Cargo.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt` |
-| Vulns     | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI, RustSec advisories) |
-| Latest    | npm registry, PyPI, Go module proxy, crates.io (direct deps) |
-| Upstream  | statuspage `/api/v2/status.json` endpoints: your configured services plus vendors detected in your lockfiles (Sentry, Twilio, MongoDB, ...). Turn the detected ones off with `stack_status = false` |
-| GitHub    | GraphQL + REST API: review requests, your PRs, and per-repo PRs, issues, Actions, commits, people, releases, Dependabot alerts |
-| Deploys   | Vercel, Netlify and Cloudflare Pages: detected from `vercel.json`, `.vercel/`, `netlify.toml`, `wrangler.*`; connect an account in the TUI (`A`: paste a token, oryn verifies it before saving), or use `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` / `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, or the platform CLI login. Pick a project for a folder with enter on the Deploys tab, or create a brand-new one from the same picker (`+ Create a new project`) for a first deploy. Press `p` to deploy a linked project: oryn shows the exact platform-CLI command (vercel, netlify or wrangler) and runs it only after you confirm. Links are kept in your oryn config, never written into the project. Failed deploys land on Activity |
-| Activity  | every new vuln, release, status change, failed deploy and GitHub event, stored in SQLite |
+`n` starts an agent: pick a project and tool, describe the task. It gets its own
+git worktree and branch (`oryn/<task>`) from your last commit, so agents can't
+overwrite each other or your checkout. It runs in tmux, so it keeps going after
+you quit oryn.
 
-Direct vs. transitive comes from the lockfile where it records it (npm, pnpm,
-Cargo, uv) and from the sibling `package.json` / `pyproject.toml` otherwise
-(yarn, poetry).
+| Key | Action |
+|---|---|
+| `a` | Open its live terminal. `ctrl+]` comes back |
+| `v` | Review what it changed |
+| `P` | Push its branch and open a PR, after asking |
+| `x` | Stop it and keep its work |
+| `X` | Delete its worktree and local branch, once you type its name |
+| `f` | On Home or Overview: start an agent on a failing CI run or deploy |
 
-Config: `~/.config/oryn/config.toml` (see `config.example.toml`).
-Data: `~/.local/share/oryn/oryn.db`.
+Good to know:
+
+- Agents keep their normal approval prompts. oryn never turns on skip-permission modes.
+- A tool may ask you to trust a new worktree. Press `a` and confirm.
+- A worktree separates files, it isn't a sandbox.
+- Gitignored files such as `.env` and `node_modules` aren't copied in, and uncommitted changes in your checkout aren't included.
+- oryn uses its own private tmux server, so your sessions aren't touched. This doesn't work on native Windows.
+- oryn only attaches to or stops agents it started.
+
+## Context for AI agents
+
+Agents waste time exploring. `oryn context` gives one a project's stack, the
+commands to run, other scripts, guide files, layout, git state, CI, deploys,
+other active agents and claimed files in one call. Inside an oryn worktree it
+answers for the project the worktree came from.
+
+`oryn mcp` serves the same over the Model Context Protocol, with the tools
+`project_context`, `list_projects`, `list_agents`, `claim_files` and
+`release_files`.
+
+Both read local files and oryn's last refresh, so they answer instantly and never
+touch the network. Open oryn once, or run `oryn daemon`, to fill in CI and deploy
+data. They carry counts and states only, never PR titles, issues or logs, because
+outsiders write those. Nothing here can deploy, delete, push or start anything,
+and claims only touch oryn's own database.
+
+Claims are a signal between cooperating agents, not a lock on the files, and they
+last two hours.
+
+## Deploys
+
+oryn works with **Vercel, Netlify and Cloudflare Pages**. It detects them from
+`vercel.json`, `.vercel/`, `netlify.toml` and `wrangler.*`, and you can link any
+project from its Deploys tab or create a new one for a first deploy.
+
+Connect an account with `A` (oryn verifies a pasted token before saving it), use
+`VERCEL_TOKEN`, `NETLIFY_AUTH_TOKEN` or `CLOUDFLARE_API_TOKEN` with
+`CLOUDFLARE_ACCOUNT_ID`, or rely on the platform's CLI login.
+
+| Key | Action |
+|---|---|
+| `p` | Deploy with the platform's CLI, after showing the exact command, with live progress |
+| `d` | Delete a deployment |
+| `X` | Delete the whole project, once you type its name |
+| `u` | Unlink the folder in oryn only |
+
+Links are kept in your oryn config, never written into your project. Cloudflare
+refuses to delete the live production deployment, so oryn tells you up front.
+Netlify support has only been tested against a fake server so far.
+
+## Health
+
+| Area | Source |
+|---|---|
+| Packages | `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.mod`, `Cargo.lock`, `uv.lock`, `poetry.lock`, `requirements*.txt` |
+| Vulnerabilities | [OSV.dev](https://osv.dev) (GHSA, Go, PyPI, RustSec advisories) |
+| Latest versions | npm, PyPI, Go module proxy, crates.io (direct dependencies) |
+| Upstream | Statuspage endpoints for your configured services, plus vendors found in your lockfiles. Turn those off with `stack_status = false` |
+
+`tab` switches pane, `enter` opens a package, and `/` searches (`lod`, `chi`).
+
+## Background alerts
+
+`oryn daemon` refreshes on an interval and sends desktop notifications for new
+high or critical vulnerabilities, upstream status changes, review requests,
+failing CI, and new issues or PRs from other people on your repos. The first run
+records a silent baseline, so you aren't flooded. Run it at login with
+`contrib/oryn.service`.
 
 ## Speed
 
 oryn opens straight away from its last refresh, then updates in the background.
 Vulnerability details stay on disk for a week and latest versions for six hours.
-The check of your packages against OSV is reused for ten minutes, unless a
-lockfile changes. If a service is down, oryn keeps showing what it last knew.
+The check of your packages against OSV is reused for ten minutes unless a
+lockfile changes, so a newly published vulnerability can take that long to show.
+If a service is down, oryn keeps showing what it last knew.
+
+## Configuration and data
+
+Config lives at `~/.config/oryn/config.toml`. See
+[`config.example.toml`](config.example.toml). Set `github = false` to turn GitHub
+off, or `refresh = "10m"` to change the interval.
+
+| Path | Holds |
+|---|---|
+| `~/.config/oryn/credentials.toml` | Tokens you paste in, readable only by you |
+| `~/.local/share/oryn/oryn.db` | Activity history and file claims |
+| `~/.local/share/oryn/snapshot.json` | The last refresh, readable only by you |
+| `~/.local/share/oryn/cache-*.json` | Cached vulnerability and version lookups |
+| `~/.local/share/oryn/agents.json` | Agents oryn started |
+| `~/.local/share/oryn/worktrees/` | Their worktrees |
+
+Your GitHub token comes from `gh` or `GH_TOKEN` / `GITHUB_TOKEN`. oryn doesn't
+store it, and only sends it to `api.github.com`.
 
 ## Roadmap
 
+- Show why CI failed in `oryn context`
+- Dismiss or snooze items in Needs you
 - AI features: daily brief, explain a failed deploy or CI run, changelog impact
-- rollback and promote, live deploy logs
-- merge, approve and re-run CI from oryn
-- dismiss or snooze items in Needs you
-- later: upgrade desk, custom layouts, exec-based custom sources, team sync
+- Rollback and promote, live deploy logs
+- Merge, approve and re-run CI from oryn
+- Later: upgrade desk, custom layouts, custom sources, team sync
 
 ## Contributing
 
 Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, how
-the code is laid out and the safety rules every change has to keep. Please
-report security problems privately, as [SECURITY.md](SECURITY.md) explains.
+the code is laid out and the safety rules every change has to keep. Please report
+security problems privately, as [SECURITY.md](SECURITY.md) explains.
 
 ## License
 
