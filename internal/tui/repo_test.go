@@ -172,9 +172,13 @@ func TestTabSwitching(t *testing.T) {
 	if m.tab != tabGitHub {
 		t.Errorf("] from deps -> %d", m.tab)
 	}
+	m.switchTab(1)
+	if m.tab != tabDeploys {
+		t.Errorf("] from github -> %d", m.tab)
+	}
 	m.switchTab(1) // wraps
 	if m.tab != tabDeps {
-		t.Errorf("] from github -> %d", m.tab)
+		t.Errorf("] from deploys -> %d", m.tab)
 	}
 	m.scope = ""
 	m.switchTab(1)

@@ -30,6 +30,16 @@ var commands = map[string]func(m *Model) tea.Cmd{
 		}
 		return nil
 	},
+	"deploys": func(m *Model) tea.Cmd {
+		if m.tabBarVisible() {
+			m.setTab(tabDeploys)
+		} else {
+			m.screen = screenDeploys
+			m.dpCursor, m.dpOffset = 0, 0
+			m.dpClamp()
+		}
+		return nil
+	},
 	"p": func(m *Model) tea.Cmd { m.focus = pPortfolio; return nil },
 	"v": func(m *Model) tea.Cmd { m.focus = pVulns; return nil },
 	"s": func(m *Model) tea.Cmd { m.focus = pStatus; return nil },
@@ -47,6 +57,7 @@ var aliases = map[string]string{
 	"c": "v", "cve": "v", "vuln": "v", "vulns": "v",
 	"status": "s", "up": "s",
 	"tape": "t", "events": "t",
+	"deploy": "deploys", "dp": "deploys",
 }
 
 func (m Model) runCommand(input string) (tea.Model, tea.Cmd) {

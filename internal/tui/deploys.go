@@ -101,7 +101,13 @@ func (m Model) deployRows() (lines []string, rows []deployRow, rowLine []int) {
 	if len(m.snap.Deploys) == 0 {
 		return []string{sDim.Render("  No Vercel, Netlify or Cloudflare Pages config found in watched projects.")}, nil, nil
 	}
+	scope := m.deployScope()
+	shown := 0
 	for ti, t := range m.snap.Deploys {
+		if scope != "" && t.Link.Project != scope {
+			continue
+		}
+		shown++
 		lines = append(lines, "", sBold.Render(filepath.Base(t.Link.Project))+" "+sDim.Render(t.Link.Platform+" "+t.Link.Ref))
 		if note := targetNote(t); note != "" {
 			rowLine = append(rowLine, len(lines))
@@ -118,7 +124,34 @@ func (m Model) deployRows() (lines []string, rows []deployRow, rowLine []int) {
 			lines = append(lines, "  "+l)
 		}
 	}
+	if shown == 0 {
+		lines = append(lines, "", sDim.Render("  No Vercel, Netlify or Cloudflare Pages config found in this project."),
+			sDim.Render("  Add a vercel.json, netlify.toml or wrangler.toml, or press A to connect an account."))
+	}
 	return lines, rows, rowLine
+}
+
+// deployScope is the project the deploys view is limited to: the open project
+// on its Deploys tab, everything on the central screen.
+func (m Model) deployScope() string {
+	if m.screen == screenProject && m.tab == tabDeploys {
+		return m.scope
+	}
+	return ""
+}
+
+// deployPlatforms names the platforms a project deploys to, for the tab label.
+func (m Model) deployPlatforms(project string) string {
+	if m.snap == nil {
+		return ""
+	}
+	var names []string
+	for _, t := range m.snap.Deploys {
+		if t.Link.Project == project {
+			names = append(names, t.Link.Platform)
+		}
+	}
+	return strings.Join(names, ", ")
 }
 
 func (m *Model) dpClamp() {
@@ -151,8 +184,26 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "q":
 		return m, tea.Quit
-	case "esc", "h", "D", "backspace", "left":
+	case "esc":
 		m.screen = screenHome
+	case "h", "backspace", "left":
+		if m.screen == screenDeploys {
+			m.screen = screenHome
+		}
+	case "D":
+		if m.screen == screenDeploys {
+			m.screen = screenHome
+		}
+	case "]":
+		if m.screen == screenProject {
+			m.switchTab(1)
+		}
+	case "[":
+		if m.screen == screenProject {
+			m.switchTab(-1)
+		}
+	case ":", "/":
+		return m.openCommand()
 	case "?":
 		m.showHelp = true
 	case "r":

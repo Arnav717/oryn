@@ -103,6 +103,7 @@ type Model struct {
 	tokenInput textinput.Model
 
 	pickTarget  app.DeployTarget // link picker
+	pickBack    screen           // where esc and a finished link return to
 	pickItems   []deploy.ProjectRef
 	pickErr     error
 	pickCursor  int
@@ -310,6 +311,9 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handlePickerKey(k)
 	}
 
+	if m.screen == screenProject && m.tab == tabDeploys {
+		return m.handleDeployKey(k)
+	}
 	if m.screen == screenProject && m.tab == tabGitHub {
 		return m.handleRepoKey(k)
 	}
@@ -337,6 +341,14 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.switchTab(1)
 	case "[":
 		m.switchTab(-1)
+	case "D":
+		if m.tabBarVisible() {
+			m.setTab(tabDeploys)
+		} else {
+			m.screen = screenDeploys
+			m.dpCursor, m.dpOffset = 0, 0
+			m.dpClamp()
+		}
 	case ":", "/":
 		return m.openCommand()
 	case "?":

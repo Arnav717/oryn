@@ -20,10 +20,11 @@ type projTab int
 const (
 	tabDeps projTab = iota
 	tabGitHub
+	tabDeploys
 	numTabs
 )
 
-var tabNames = [numTabs]string{"Dependencies", "GitHub"}
+var tabNames = [numTabs]string{"Dependencies", "GitHub", "Deploys"}
 
 // subView is a section of the GitHub tab.
 type subView int
@@ -65,6 +66,10 @@ func (m *Model) switchTab(delta int) {
 func (m *Model) setTab(t projTab) {
 	m.tab = t
 	m.detail = ""
+	if t == tabDeploys {
+		m.dpCursor, m.dpOffset = 0, 0
+		m.dpClamp()
+	}
 	m.repoClamp()
 }
 
@@ -468,6 +473,8 @@ func (m Model) handleRepoKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.switchTab(1)
 	case "[":
 		m.switchTab(-1)
+	case "D":
+		m.setTab(tabDeploys)
 	case "l", "right", "tab":
 		m.rsub = (m.rsub + 1) % numSubs
 	case "h", "left", "shift+tab":
@@ -522,6 +529,11 @@ func (m Model) tabBarView() string {
 		if t == tabGitHub {
 			if ref, ok := m.repoRefFor(m.scope); ok {
 				label += " " + sDim.Render(ref.String())
+			}
+		}
+		if t == tabDeploys {
+			if names := m.deployPlatforms(m.scope); names != "" {
+				label += " " + sDim.Render(names)
 			}
 		}
 		if t == m.tab {

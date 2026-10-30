@@ -175,7 +175,7 @@ func (m Model) linkTarget(t app.DeployTarget) (tea.Model, tea.Cmd) {
 		m.flash = "already linked to " + t.Link.Ref + " (press l again on an unlinked target)"
 		return m, nil
 	}
-	m.pickTarget = t
+	m.pickTarget, m.pickBack = t, m.screen
 	m.pickItems, m.pickErr, m.pickCursor, m.pickLoading = nil, nil, 0, true
 	m.screen = screenPicker
 	return m, projectsCmd(t.Link.Platform)
@@ -207,7 +207,7 @@ func (m Model) handlePickerKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "esc", "h", "backspace", "left":
-		m.screen = screenDeploys
+		m.screen = m.pickBack
 	case "j", "down":
 		m.pickCursor = min(m.pickCursor+1, max(0, len(m.pickItems)-1))
 	case "k", "up":
@@ -218,7 +218,7 @@ func (m Model) handlePickerKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		it, t := m.pickItems[m.pickCursor], m.pickTarget
 		m.cfg.SetDeployLink(t.Link.Project, t.Link.Platform, it.Ref, it.Team)
-		m.screen = screenDeploys
+		m.screen = m.pickBack
 		if !m.cfg.Ephemeral {
 			if err := m.cfg.Save(); err != nil {
 				m.flash = "linked, but couldn't save config: " + err.Error()

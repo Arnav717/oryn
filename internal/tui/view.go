@@ -61,6 +61,8 @@ func (m Model) View() string {
 		body = m.fullBox(lines[min(m.ghOffset, len(lines)):])
 	case m.detail != "":
 		body = m.fullBox(m.detailLines())
+	case m.tabBarVisible() && m.tab == tabDeploys:
+		body = m.fullBox(m.deployBody())
 	case m.tabBarVisible() && m.tab == tabGitHub:
 		body = m.repoBody()
 	default:
@@ -214,7 +216,7 @@ func (m Model) footer() string {
 		case m.confirmRm && m.homeCursor < len(items):
 			return sWarn.Render("stop watching " + filepath.Base(items[m.homeCursor].path) + "?  y to confirm, any other key cancels")
 		}
-		hints := sDim.Render("j/k move · enter open · 1-9 jump · a add · d remove · r refresh · ? help · q quit")
+		hints := sDim.Render("j/k move · enter open · 1-9 jump · c changes · D deploys · A accounts · a add · d remove · r refresh · ? help · q quit")
 		if m.flash == "" {
 			return clip(hints, m.w)
 		}
@@ -223,6 +225,9 @@ func (m Model) footer() string {
 	hints := sDim.Render("tab pane · j/k move · enter open · / search · esc home · r refresh · ? help · q quit")
 	if m.tabBarVisible() {
 		hints = sDim.Render("tab pane · j/k move · enter open · / search · [ ] tabs · esc home · r refresh · ? help · q quit")
+		if m.tab == tabDeploys {
+			hints = sDim.Render("j/k move · enter open/link · l link project · A accounts · [ ] tabs · esc home · r refresh · ? help · q quit")
+		}
 		if m.tab == tabGitHub {
 			hints = sDim.Render("h/l section · 1-8 jump · j/k move · enter open · o repo · [ ] tabs · esc home · r refresh · ? help · q quit")
 		}

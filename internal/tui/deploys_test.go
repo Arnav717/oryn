@@ -60,7 +60,7 @@ func TestAccountsTokenEntry(t *testing.T) {
 func TestPickerLinksProject(t *testing.T) {
 	cfg := &config.Config{Ephemeral: true}
 	m := Model{
-		cfg: cfg, screen: screenPicker, pickCursor: 1,
+		cfg: cfg, screen: screenPicker, pickBack: screenDeploys, pickCursor: 1,
 		pickTarget: app.DeployTarget{Link: deploy.Link{Platform: "vercel", Project: "/p/web"}},
 		pickItems:  []deploy.ProjectRef{{Name: "a", Ref: "prj_a"}, {Name: "b", Ref: "prj_b", Team: "team_1"}},
 	}
@@ -68,5 +68,28 @@ func TestPickerLinksProject(t *testing.T) {
 	m = next.(Model)
 	if m.screen != screenDeploys || len(cfg.DeployLinks) != 1 || cfg.DeployLinks[0].Ref != "prj_b" || cfg.DeployLinks[0].Team != "team_1" {
 		t.Fatalf("screen=%v links=%+v", m.screen, cfg.DeployLinks)
+	}
+}
+
+func TestDeployRowsScopedToProject(t *testing.T) {
+	snap := &app.Snapshot{Deploys: []app.DeployTarget{
+		{Link: deploy.Link{Platform: "vercel", Project: "/p/web", Ref: "a"}, Queryable: true,
+			Deployments: []deploy.Deployment{{ID: "1", Target: "production", State: deploy.StateReady}}},
+		{Link: deploy.Link{Platform: "netlify", Project: "/p/docs", Ref: "b"}, Queryable: true,
+			Deployments: []deploy.Deployment{{ID: "2", Target: "production", State: deploy.StateReady}, {ID: "3", Target: "preview", State: deploy.StateReady}}},
+	}}
+	central := Model{snap: snap, screen: screenDeploys}
+	if _, rows, _ := central.deployRows(); len(rows) != 3 {
+		t.Fatalf("central screen should list all 3 deployments, got %d", len(rows))
+	}
+	proj := Model{snap: snap, screen: screenProject, tab: tabDeploys, scope: "/p/docs"}
+	_, rows, _ := proj.deployRows()
+	if len(rows) != 2 || rows[0].target != 1 {
+		t.Fatalf("project tab should list only /p/docs, got %+v", rows)
+	}
+	empty := Model{snap: snap, screen: screenProject, tab: tabDeploys, scope: "/p/none"}
+	lines, rows, _ := empty.deployRows()
+	if len(rows) != 0 || !strings.Contains(strings.Join(lines, "\n"), "No Vercel") {
+		t.Fatalf("empty project should explain itself: %v", lines)
 	}
 }
