@@ -61,6 +61,16 @@ func TestOSVCaching(t *testing.T) {
 		t.Errorf("batches %d, details %d", batches.Load(), details.Load())
 	}
 
+	// The same packages in another order are the same question.
+	two := []detect.Dep{{Ecosystem: "npm", Name: "a", Version: "1.0.0"}, {Ecosystem: "npm", Name: "b", Version: "1.0.0"}}
+	QueryOSV(context.Background(), two)
+	before := batches.Load()
+	QueryOSV(context.Background(), []detect.Dep{two[1], two[0]})
+	if batches.Load() != before {
+		t.Errorf("reordered deps asked again")
+	}
+	batches.Store(1)
+
 	// A lockfile change is noticed at once.
 	changed := append(deps, detect.Dep{Ecosystem: "npm", Name: "y", Version: "2.0.0"})
 	QueryOSV(context.Background(), changed)

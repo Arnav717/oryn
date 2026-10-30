@@ -151,6 +151,18 @@ func QueryOSV(ctx context.Context, deps []detect.Dep) (map[string][]Vuln, error)
 		keys = append(keys, k)
 	}
 
+	// Scans list packages in no fixed order, and the match cache depends on one.
+	order := make([]int, len(keys))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortFunc(order, func(a, b int) int { return strings.Compare(keys[a], keys[b]) })
+	sortedQ, sortedK := make([]osvQuery, len(keys)), make([]string, len(keys))
+	for i, o := range order {
+		sortedQ[i], sortedK[i] = queries[o], keys[o]
+	}
+	queries, keys = sortedQ, sortedK
+
 	ids, err := matchOSV(ctx, queries)
 	if err != nil {
 		return nil, err
