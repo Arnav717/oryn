@@ -8,6 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/Arnav717/oryn/internal/app"
+	"github.com/Arnav717/oryn/internal/deploy"
 	"github.com/Arnav717/oryn/internal/source"
 )
 
@@ -193,5 +195,85 @@ func (m Model) openRunLog(d *source.RepoData) (tea.Model, tea.Cmd) {
 	return m.openLog(fmt.Sprintf("%s #%d", clean(r.Workflow), r.Number), func(ctx context.Context) logResult {
 		lines, live, err := source.RunLog(ctx, ref, id)
 		return logResult{lines, live, err}
+	})
+}
+
+// selectedDeployment is the deployment under the cursor on a Deploys view.
+func (m Model) selectedDeployment() (app.DeployTarget, deploy.Deployment, bool) {
+	_, rows, _ := m.deployRows()
+	if m.dpCursor < 0 || m.dpCursor >= len(rows) || rows[m.dpCursor].dep == nil {
+		return app.DeployTarget{}, deploy.Deployment{}, false
+	}
+	r := rows[m.dpCursor]
+	return m.snap.Deploys[r.target], *r.dep, true
+}
+
+func building(state string) bool { return state == deploy.StateBuilding || state == deploy.StateQueued }
+
+func (m Model) openDeployLog() (tea.Model, tea.Cmd) {
+	t, d, ok := m.selectedDeployment()
+	if !ok {
+		m.flash = "select a deployment"
+		return m, nil
+	}
+	lr := deploy.LogReaderFor(t.Link.Platform)
+	if lr == nil {
+		m.flash = t.Link.Platform + " has no API for build logs: enter opens this deployment in your browser"
+		return m, nil
+	}
+	link, watch := t.Link, building(d.State)
+	return m.openLog(t.Link.Platform+" build "+orDefault(d.Commit, d.ID), func(ctx context.Context) logResult {
+		// State first: a build that ends between the two calls then gets one
+		// more read, which is the one with its last lines.
+		live := false
+		if watch {
+			live = true
+			if list, err := deploy.ProviderFor(link.Platform).List(ctx, link, 20); err == nil {
+				for _, x := range list {
+					if x.ID == d.ID {
+						live = building(x.State)
+					}
+				}
+			}
+		}
+		lines, err := lr.Logs(ctx, link, d.ID)
+		return logResult{lines, live, err}
+	})
+}
+
+func (m Model) askRollback() (tea.Model, tea.Cmd) {
+	t, d, ok := m.selectedDeployment()
+	if !ok {
+		m.flash = "select a deployment to roll back to"
+		return m, nil
+	}
+	rb := deploy.RollbackerFor(t.Link.Platform)
+	switch {
+	case rb == nil:
+		m.flash = "rollback is not supported on " + t.Link.Platform
+		return m, nil
+	case d.Target != "production":
+		m.flash = "only a production deployment can go back live"
+		return m, nil
+	case d.State != deploy.StateReady:
+		m.flash = "this deployment didn't finish, so it can't go live"
+		return m, nil
+	case t.IsLive(d):
+		m.flash = "this is already the newest production deployment"
+		return m, nil
+	}
+	var warn []string
+	if t.Link.Platform == "vercel" {
+		warn = append(warn, "new deploys won't go live until you promote one in Vercel")
+	}
+	link, id, name := t.Link, d.ID, orDefault(d.Commit, d.ID)
+	return m.ask(actionAsk{
+		prompt: fmt.Sprintf("put %s (%s) back live on %s?", name, ago(d.Created, m.now), link.Platform),
+		warn:   warn,
+		done:   "rolled " + link.Platform + " back to " + name,
+		fail:   "couldn't roll back",
+		run: func(ctx context.Context) error {
+			return rb.Rollback(ctx, link, id)
+		},
 	})
 }

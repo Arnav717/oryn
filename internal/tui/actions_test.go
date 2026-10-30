@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Arnav717/oryn/internal/app"
 	"github.com/Arnav717/oryn/internal/deploy"
 	"github.com/Arnav717/oryn/internal/source"
 )
@@ -113,6 +114,52 @@ func TestActionResultSurvivesTheRefresh(t *testing.T) {
 	m.acting = true
 	if got := press(t, m, "M"); got.actAsk != nil || !strings.Contains(got.flash, "still working") {
 		t.Errorf("a second action while one runs: %q", got.flash)
+	}
+}
+
+func deployModel(platform string, deps ...deploy.Deployment) Model {
+	m := shellModel()
+	m.now = time.Now()
+	m.snap = &app.Snapshot{Deploys: []app.DeployTarget{{
+		Link: deploy.Link{Platform: platform, Project: "/code/a", Ref: "prj"}, Queryable: true, Deployments: deps,
+	}}}
+	m.openSection(secDeploys)
+	return m
+}
+
+func TestRollbackGuards(t *testing.T) {
+	live := deploy.Deployment{ID: "new", Target: "production", State: deploy.StateReady, Commit: "aaa"}
+	old := deploy.Deployment{ID: "old", Target: "production", State: deploy.StateReady, Commit: "bbb", Created: time.Now().Add(-time.Hour)}
+	broken := deploy.Deployment{ID: "bad", Target: "production", State: deploy.StateError}
+	preview := deploy.Deployment{ID: "pre", Target: "preview", State: deploy.StateReady}
+
+	m := deployModel("vercel", live, old, broken, preview)
+	for cur, why := range map[int]string{0: "already", 2: "didn't finish", 3: "only a production"} {
+		m.dpCursor = cur
+		if got := press(t, m, "R"); got.actAsk != nil || !strings.Contains(got.flash, why) {
+			t.Errorf("row %d: ask %+v flash %q", cur, got.actAsk, got.flash)
+		}
+	}
+	m.dpCursor = 1
+	got := press(t, m, "R")
+	if got.actAsk == nil || !strings.Contains(got.actAsk.prompt, "put bbb") || !strings.Contains(got.actionPrompt(), "promote") {
+		t.Fatalf("ask %+v", got.actAsk)
+	}
+	m = deployModel("netlify", live, old)
+	m.dpCursor = 1
+	if got := press(t, m, "R"); got.actAsk == nil || len(got.actAsk.warn) != 0 {
+		t.Errorf("netlify: %+v", got.actAsk)
+	}
+}
+
+func TestDeployLogSaysWhenThePlatformHasNone(t *testing.T) {
+	m := deployModel("netlify", deploy.Deployment{ID: "n1", Target: "production", State: deploy.StateReady})
+	if got := press(t, m, "L"); got.logv != nil || !strings.Contains(got.flash, "no API for build logs") {
+		t.Errorf("flash %q", got.flash)
+	}
+	m = deployModel("vercel", deploy.Deployment{ID: "v1", Target: "production", State: deploy.StateReady})
+	if got := press(t, m, "L"); got.logv == nil {
+		t.Error("vercel should open the log")
 	}
 }
 

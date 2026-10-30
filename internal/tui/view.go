@@ -291,7 +291,7 @@ func (m Model) projectHints() string {
 	case tabOverview:
 		return "tab window · enter expand · f fix · x dismiss · z snooze"
 	case tabDeploys:
-		return "enter open · p deploy · [ ] jump · ctrl+p commands"
+		return "enter open · L log · R roll back · p deploy · [ ] jump"
 	case tabGitHub:
 		switch m.rsub {
 		case svPRs:
@@ -610,6 +610,8 @@ func helpLines() []string {
 		"",
 		sBold.Render("Deploys"),
 		row("p", "deploy the linked project (asks first)"),
+		row("L", "read a deployment's build log, live while it builds"),
+		row("R", "put an earlier production deployment back live (asks first)"),
 		row("d / X", "delete a deployment / the whole project (asks first)"),
 		row("u", "unlink the folder in oryn only"),
 		row("n (link picker)", "create a new project on the platform"),

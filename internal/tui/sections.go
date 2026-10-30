@@ -70,7 +70,7 @@ func init() {
 		},
 		secDeploys: {
 			title: "Deploys",
-			hints: "enter open · p deploy · A accounts · ctrl+p commands",
+			hints: "enter open · L log · R roll back · p deploy · A accounts",
 			open: func(m *Model) {
 				m.screen = screenDeploys
 				m.dpCursor, m.dpOffset = 0, 0

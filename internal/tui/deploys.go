@@ -224,6 +224,10 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.dpCursor = 1 << 30
 	case "A":
 		return m.openAccounts("")
+	case "L":
+		return m.openDeployLog()
+	case "R":
+		return m.askRollback()
 	case "d":
 		return m.askDeleteDeployment()
 	case "X":
