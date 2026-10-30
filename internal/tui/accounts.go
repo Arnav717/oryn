@@ -95,7 +95,7 @@ func (m Model) acctLines() []string {
 		"",
 		sDim.Render("  Tokens saved by oryn live in "+filepath.Join("~/.config/oryn", "credentials.toml")+" (owner-only, 0600)."))
 	if p := deploy.Platforms[m.acctCursor]; p == "cloudflare" {
-		lines = append(lines, "", sDim.Render("  Cloudflare: create a token with Account Settings: Read and Cloudflare Pages: Read."))
+		lines = append(lines, "", sDim.Render("  Cloudflare: create a token with Account Settings: Read and Cloudflare Pages: Edit (Read is enough to view deployments, but creating a project or deploying needs Edit)."))
 	}
 	return lines
 }

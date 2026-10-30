@@ -91,6 +91,9 @@ func (c *Cloudflare) Create(ctx context.Context, name string) (ProjectRef, error
 	u := c.base + "/client/v4/accounts/" + url.PathEscape(acc) + "/pages/projects"
 	body := map[string]string{"name": name, "production_branch": "main"}
 	if err := source.DoJSONH(ctx, "POST", u, bearer(tok), body, &r); err != nil {
+		if strings.Contains(err.Error(), "403") {
+			return ProjectRef{}, errors.New("Cloudflare refused (403): the token needs the Cloudflare Pages: Edit permission to create projects")
+		}
 		return ProjectRef{}, err
 	}
 	return ProjectRef{Name: r.Result.Name, Ref: r.Result.Name}, nil

@@ -390,3 +390,16 @@ func TestPreflightWarnsAboutUnignoredEnv(t *testing.T) {
 		t.Fatalf("platform-ignored .env must not warn: %v", w)
 	}
 }
+
+func TestCloudflareCreateForbiddenIsExplained(t *testing.T) {
+	SetCredsDir(t.TempDir())
+	t.Cleanup(func() { SetCredsDir("") })
+	t.Setenv("CLOUDFLARE_API_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acc1")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "no", 403) }))
+	defer srv.Close()
+	_, err := (&Cloudflare{base: srv.URL}).Create(context.Background(), "web")
+	if err == nil || !strings.Contains(err.Error(), "Pages: Edit") {
+		t.Fatalf("a 403 should say which permission is missing: %v", err)
+	}
+}

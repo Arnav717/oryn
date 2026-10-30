@@ -211,7 +211,7 @@ func (c *Cloudflare) Verify(ctx context.Context, token string) (string, string, 
 		return "", "", err
 	}
 	if len(r.Result) == 0 {
-		return "", "", errors.New("token can't see any account (needs Account Settings: Read and Cloudflare Pages: Read)")
+		return "", "", errors.New("token can't see any account (needs Account Settings: Read and Cloudflare Pages: Edit)")
 	}
 	return r.Result[0].Name, r.Result[0].ID, nil
 }
