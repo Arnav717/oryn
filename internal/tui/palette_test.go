@@ -107,7 +107,7 @@ func TestBackgroundSurvivesInnerStyles(t *testing.T) {
 		if lipgloss.Width(l) != m.w {
 			t.Errorf("line is %d wide, want full width: %q", lipgloss.Width(l), l)
 		}
-		if !strings.Contains(l[:min(40, len(l))], "48;2;10;10;10m") {
+		if !strings.Contains(l[:min(40, len(l))], "48;2;11;14;20m") {
 			t.Errorf("line lost the background: %q", l)
 		}
 		if strings.Contains(strings.TrimSuffix(l, "\x1b[0m"), "\x1b[0m ") {
@@ -115,7 +115,7 @@ func TestBackgroundSurvivesInnerStyles(t *testing.T) {
 		}
 	}
 	got := paint(sBad.Render("x")+" y", panelBg, 10)
-	if !strings.Contains(got, ";48;2;20;20;20m y") {
+	if !strings.Contains(got, ";48;2;16;20;28m y") {
 		t.Errorf("paint: %q", got)
 	}
 }
@@ -125,7 +125,7 @@ func TestSelectedRowIsABar(t *testing.T) {
 	defer lipgloss.SetColorProfile(termenv.Ascii)
 
 	got := highlight(sAccent.Render("▸ ")+sBad.Render("devdoq"), 20)
-	if !strings.Contains(got, "48;2;250;178;131") || !strings.Contains(got, "devdoq") || strings.Contains(got, "▸") {
+	if !strings.Contains(got, "48;2;20;48;58") || !strings.Contains(got, "devdoq") || strings.Contains(got, "▸") {
 		t.Errorf("selected: %q", got)
 	}
 	if lipgloss.Width(got) != 20 {

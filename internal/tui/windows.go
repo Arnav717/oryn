@@ -104,7 +104,7 @@ func githubWinRows(m *Model) []winRow {
 // read.
 func (m Model) homeBody() string {
 	avail := m.h - m.chrome()
-	const minStacked = 6 // margin, title, gap and two rows
+	const minStacked = 4 // the frame and two rows
 	switch {
 	case m.w >= 100:
 		lw, rw := m.w/2, m.w-m.w/2
@@ -126,18 +126,14 @@ func (m Model) homeBody() string {
 }
 
 func (m Model) window(w homeWin, width, height int) string {
-	cw, ch := width-3, height-2
+	cw, ch := width-4, height-2
 	rows := homeWindows[w].rows(&m)
 	focused := w == m.win
-	title := sDim.Bold(true).Render(homeWindows[w].title)
-	if focused {
-		title = sAccent.Bold(true).Render(homeWindows[w].title)
-	}
-	lines := []string{clip(title, cw), ""}
 
-	vis := max(1, ch-2)
+	vis := max(1, ch)
 	cur := max(0, min(m.winCur[w], len(rows)-1))
 	off := max(0, cur-vis+1)
+	lines := make([]string, 0, vis)
 	for i := off; i < min(len(rows), off+vis); i++ {
 		marker := "  "
 		if focused && i == cur {
@@ -145,7 +141,7 @@ func (m Model) window(w homeWin, width, height int) string {
 		}
 		lines = append(lines, clip(marker+rows[i].text, cw))
 	}
-	return panel(lines, width, height, focused)
+	return panel(homeWindows[w].title, lines, width, height, focused)
 }
 
 func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {

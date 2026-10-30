@@ -111,7 +111,7 @@ func setUp() error {
 		";", "set-option", "-g", "mouse", "on",
 		";", "set-option", "-g", "default-terminal", "tmux-256color",
 		";", "set-option", "-ga", "terminal-features", ",*:RGB",
-		";", "set-option", "-g", "status-style", "bg=#141414,fg=#808080",
+		";", "set-option", "-g", "status-style", "bg=#10141c,fg=#7d8796",
 		";", "set-option", "-g", "status-left", "",
 		";", "set-option", "-g", "status-right", " ctrl+] back to oryn ",
 		";", "set-option", "-g", "window-status-format", "",

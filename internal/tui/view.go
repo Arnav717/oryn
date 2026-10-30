@@ -32,8 +32,8 @@ func (m *Model) paneSize(p paneID) size {
 	return size{m.w, botH}
 }
 
-// visible is the number of data rows a pane can show (border + 2 header lines).
-func (m *Model) visible(p paneID) int { return m.paneSize(p).h - 4 }
+// visible is the number of data rows a pane can show (border + column header).
+func (m *Model) visible(p paneID) int { return m.paneSize(p).h - 3 }
 
 func (m Model) View() string {
 	if m.w == 0 {
@@ -295,12 +295,11 @@ func (m Model) suggestions() string {
 
 func (m Model) pane(p paneID) string {
 	sz := m.paneSize(p)
-	cw, ch := sz.w-3, sz.h-2
+	cw, ch := sz.w-4, sz.h-2
 	rowW := cw - 2 // room for the cursor marker
 
 	sub, rows := m.paneContent(p, rowW)
 	lines := []string{
-		m.paneTitle(p),
 		"  " + sDim.Render(clip(sub, rowW)),
 	}
 	if m.snap == nil {
@@ -320,14 +319,7 @@ func (m Model) pane(p paneID) string {
 	if len(lines) > ch {
 		lines = lines[:ch]
 	}
-	return panel(lines, sz.w, sz.h, p == m.focus)
-}
-
-func (m Model) paneTitle(p paneID) string {
-	if p == m.focus {
-		return sAccent.Bold(true).Render(paneTitles[p])
-	}
-	return sDim.Bold(true).Render(paneTitles[p])
+	return panel(paneTitles[p], lines, sz.w, sz.h, p == m.focus)
 }
 
 // paneContent returns a column/summary line and the rows.

@@ -10,19 +10,15 @@ talks directly to the services you connect, and sends only package names and
 versions to public APIs (OSV, npm, PyPI, Go proxy).
 
 ```
- oryn   Home  Projects  Agents  Deploys  GitHub  Health  Activity          16:27
-
- Needs you                               Deploys
-
- ▸ devdoq   ● CI is failing on main        ● portfolio   cloudflare 2h
-   devdoq   ● 9 issues are assigned to you
-            ● 4 PRs are waiting for review
-                                         GitHub
-
-                                           devdoq-workers#28   Observability
-                                           RX-website#10       Add files via upload
-
- tab switch · enter open · 1-7 tabs · ? help
+ ◆ oryn  Home  Projects  Agents  Deploys  GitHub  Health  Activity         16:27
+┌─ Needs you ─────────────────────────┐┌─ Agents ─────────────────────────────┐
+│▌ devdoq   ● CI is failing on main   ││  ● portfolio  claude  fix the footer │
+│  devdoq   ● 9 issues assigned to you││                                      │
+└─────────────────────────────────────┘└──────────────────────────────────────┘
+┌─ Deploys ───────────────────────────┐┌─ GitHub ─────────────────────────────┐
+│  ● portfolio  cloudflare 2h         ││  devdoq-workers#28   Observability   │
+└─────────────────────────────────────┘└──────────────────────────────────────┘
+ /data/oryn                         tab switch  enter open  ctrl+p commands
 ```
 
 ## Install

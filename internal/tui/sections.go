@@ -178,7 +178,7 @@ func (m Model) tabsLine() string {
 				parts[id] = sTabOff.Render(sections[id].title)
 			}
 		}
-		return " " + sLogo.Render("oryn") + "  " + strings.Join(parts, "")
+		return " " + sLogo.Render("◆ oryn") + "  " + strings.Join(parts, "")
 	}
 	right := m.now.Format("15:04") + " "
 	if m.loading {

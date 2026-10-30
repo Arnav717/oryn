@@ -90,13 +90,13 @@ func (m Model) handlePaletteKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) paletteBody() string {
 	bodyH := m.h - m.chrome()
 	w := min(64, m.w-4)
-	inner := w - 3
+	inner := w - 4
 
 	row := func(l, r string) string {
-		gap := inner - 4 - lipgloss.Width(l) - lipgloss.Width(r)
+		gap := inner - 3 - lipgloss.Width(l) - lipgloss.Width(r)
 		return "  " + l + strings.Repeat(" ", max(1, gap)) + r
 	}
-	header := []string{sTitle.Render("Commands") + strings.Repeat(" ", max(1, inner-13)) + sDim.Render("esc"), "", m.palInput.View(), ""}
+	header := []string{m.palInput.View(), ""}
 
 	items := m.palMatches()
 	vis := max(3, min(22, bodyH-len(header)-3)) // rows for items and group titles
@@ -122,7 +122,7 @@ func (m Model) paletteBody() string {
 		case l.item < 0:
 			lines = append(lines, l.text)
 		case l.item == m.palCur:
-			lines = append(lines, sSel.Render(pad(row(items[l.item].title, items[l.item].key), inner)))
+			lines = append(lines, selBar(strings.TrimPrefix(row(items[l.item].title, items[l.item].key), " "), inner))
 		default:
 			lines = append(lines, row(items[l.item].title, sDim.Render(items[l.item].key)))
 		}
@@ -131,7 +131,7 @@ func (m Model) paletteBody() string {
 		lines = append(lines, sDim.Render("no matches"))
 	}
 
-	block := strings.Split(panel(lines, w, len(lines)+3, true), "\n")
+	block := strings.Split(panel("Commands", lines, w, len(lines)+2, true), "\n")
 	top := max(0, (bodyH-len(block))/2)
 	left := strings.Repeat(" ", max(0, (m.w-w)/2))
 	out := make([]string, 0, bodyH)
