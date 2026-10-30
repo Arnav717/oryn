@@ -20,8 +20,8 @@ names and versions to public APIs (OSV, npm, PyPI, Go proxy).
 |---|---|
 | **Agents.** Every agent in your projects, with the ones waiting on you first. | **Review.** Read what an agent changed, then open a PR or discard it. |
 | ![Agents](docs/screenshots/agents.png) | ![Reviewing an agent's diff](docs/screenshots/review.png) |
-| **A project.** What needs you, where it's live, and recent commits. | **Health.** Vulnerabilities and outdated packages, out of your way. |
-| ![A project's overview](docs/screenshots/project.png) | ![Health](docs/screenshots/health.png) |
+| **A project.** Windows for what needs you, agents, deploys, GitHub, health and activity. | **Health.** Vulnerabilities and outdated packages, out of your way. |
+| ![A project's windows](docs/screenshots/project.png) | ![Health](docs/screenshots/health.png) |
 
 `ctrl+p` opens a command palette for every tab, project and action, and Activity
 keeps a timeline of what changed. These screens use made-up projects.
@@ -155,15 +155,31 @@ opens, `esc` goes back, `r` refreshes, `?` lists every key and `q` quits.
 agents waiting on you, and critical vulnerabilities that are new since your last
 visit. Known vulnerabilities and upstream outages stay on Health.
 
-**A project** has its own tabs, switched with `[` and `]`: Overview, Agents,
-Deploys, GitHub, Health and Activity. Overview shows what needs you there, where
-it's live, GitHub state and recent commits. `p` deploys, and `f` hands a failure
-to an agent.
+`x` dismisses an item until it changes, so a new failure under the same heading
+still reaches you. `z` snoozes it for a day, and `u` brings back what you set
+aside. The list always says how much is hidden.
+
+**A project** opens on six windows: Needs you, Agents, Live, GitHub, Health and
+Activity. `tab` moves between them, and `enter` or a click expands one to full
+size. `esc` comes back, and `[` `]` jump straight between expanded windows. `p`
+deploys, and `f` hands a failure to an agent. On a short terminal you see the
+focused window alone.
 
 **The GitHub tab** in a project is read from the folder's git remote, with no
 setup. `h/l` moves through Overview, PRs, Issues, Actions, Commits, People,
-Releases and Dependabot Alerts, and `enter` opens a row in your browser. If a
-folder's remote isn't the repo you want, map it in the config:
+Releases and Dependabot Alerts, and `enter` opens a row in your browser.
+
+| Key | Where | Action |
+|---|---|---|
+| `M` | PRs | Merge with your default method for the repo, warning if CI or review isn't clean |
+| `a` | PRs | Approve |
+| `L` | Actions | Read the end of a run's log, starting from its failed job |
+| `R` | Actions | Re-run a run's failed jobs |
+
+Merge, approve and re-run all ask first. They act on the commit you were looking
+at, so if a PR moved on after you last refreshed, GitHub refuses.
+
+If a folder's remote isn't the repo you want, map it in the config:
 
 ```toml
 [repos]
@@ -228,8 +244,10 @@ answers for the project the worktree came from.
 
 Both read local files and oryn's last refresh, so they answer instantly and never
 touch the network. Open oryn once, or run `oryn daemon`, to fill in CI and deploy
-data. They carry counts and states only, never PR titles, issues or logs, because
-outsiders write those. Nothing here can deploy, delete, push or start anything,
+data. They carry counts, states and names from the project's own committed files,
+never PR titles, issues or logs, because outsiders write those. When CI fails on
+the default branch, they name the workflow, job and step at that exact commit and
+give the `gh` command for the log, so an agent reads it knowingly. Nothing here can deploy, delete, push or start anything,
 and claims only touch oryn's own database.
 
 Claims are a signal between cooperating agents, not a lock on the files, and they
@@ -248,13 +266,17 @@ Connect an account with `A` (oryn verifies a pasted token before saving it), use
 | Key | Action |
 |---|---|
 | `p` | Deploy with the platform's CLI, after showing the exact command, with live progress |
+| `L` | Read a deployment's build log, following it while it builds. Vercel and Cloudflare only: Netlify's API has no build logs |
+| `R` | Put an earlier production deployment back live without rebuilding, after asking |
 | `d` | Delete a deployment |
 | `X` | Delete the whole project, once you type its name |
 | `u` | Unlink the folder in oryn only |
 
 Links are kept in your oryn config, never written into your project. Cloudflare
 refuses to delete the live production deployment, so oryn tells you up front.
-Netlify support has only been tested against a fake server so far.
+After a Vercel rollback, new deploys don't go live until you promote one, and oryn
+warns you before you confirm. Netlify support and rollback on every platform have
+only been tested against a fake server so far.
 
 ## Health
 
@@ -303,11 +325,8 @@ store it, and only sends it to `api.github.com`.
 
 ## Roadmap
 
-- Show why CI failed in `oryn context`
-- Dismiss or snooze items in Needs you
 - AI features: daily brief, explain a failed deploy or CI run, changelog impact
-- Rollback and promote, live deploy logs
-- Merge, approve and re-run CI from oryn
+- Promote from oryn, and showing which deployment is live after a rollback
 - Later: upgrade desk, custom layouts, custom sources, team sync
 
 ## Contributing

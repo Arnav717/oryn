@@ -66,8 +66,10 @@ These aren't style preferences. A PR that breaks one won't be merged.
 - **Never skip an agent's approvals.** `Tools` must not gain a flag like
   `--dangerously-skip-permissions`, and oryn doesn't answer prompts for you.
 - **Outsiders' text is data, never instructions.** PR titles, issues, logs and
-  deploy messages stay out of `oryn context`, MCP and "Fix this" tasks. Anything
-  agent-written shown in the TUI gets terminal control codes stripped.
+  deploy messages stay out of `oryn context`, MCP and "Fix this" tasks. CI job
+  names may go in only from runs of the default branch's head commit, which is
+  what the project itself committed. Anything agent-written or from a log shown
+  in the TUI gets terminal control codes stripped.
 - **No shell.** Run commands as argument lists with `exec.Command`. User and
   agent text must never reach a shell.
 - **MCP stays harmless.** No tool may deploy, delete, push or start anything.
