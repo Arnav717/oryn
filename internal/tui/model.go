@@ -133,6 +133,7 @@ type Model struct {
 	agOffset int
 	agOpen   string // ID of the session shown in detail, "" for the list
 	spawn    *spawnForm
+	finder   *finder
 	stopAsk  *agents.Run // a stop waiting for y/n
 
 	win    homeWin // focused window on Home
@@ -310,6 +311,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spawnedMsg:
 		return m.onSpawned(msg)
 
+	case foundMsg:
+		return m.onFound(msg)
+
 	case attachedMsg:
 		if msg.err != nil {
 			m.flash = msg.err.Error()
@@ -373,6 +377,9 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.spawn != nil {
 		return m.handleSpawnKey(k)
+	}
+	if m.finder != nil {
+		return m.handleFinderKey(k)
 	}
 	if m.stopAsk != nil {
 		return m.handleStopConfirm(k)

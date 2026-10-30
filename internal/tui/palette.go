@@ -34,6 +34,7 @@ func (m Model) palItems() []palItem {
 		palItem{"Actions", "New agent", "n", Model.openSpawn},
 		palItem{"Actions", "Refresh", "r", func(m Model) (tea.Model, tea.Cmd) { return m, m.startRefresh() }},
 		palItem{"Actions", "Connect accounts", "A", Model.palAccounts},
+		palItem{"Actions", "Find projects in a folder", "f", Model.openFinder},
 		palItem{"Actions", "Add a project", "a", func(m Model) (tea.Model, tea.Cmd) {
 			m.openSection(secProjects)
 			return m.startAdd(m.cwd)

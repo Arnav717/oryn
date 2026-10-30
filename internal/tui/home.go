@@ -198,6 +198,8 @@ func (m Model) handleProjectsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.openSection(secActivity)
 	case "a":
 		return m.startAdd(m.cwd)
+	case "f":
+		return m.openFinder()
 	case "d", "x":
 		if items[m.homeCursor].kind == itemProject {
 			m.confirmRm = true
@@ -321,7 +323,7 @@ func (m Model) projectLines() []string {
 			lines = append(lines, marker+pad(name, nameW)+sBad.Render("directory missing"))
 			continue
 		}
-		lines = append(lines, marker+pad(name, nameW)+pad(sDim.Render(config.ShortHome(it.path)), pathW)+
+		lines = append(lines, marker+pad(name, nameW-1)+" "+pad(sDim.Render(config.ShortHome(it.path)), pathW)+
 			pad(m.repoCell(it.path), ghW)+m.deployCell(it.path))
 	}
 	return lines

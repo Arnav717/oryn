@@ -62,6 +62,8 @@ func (m Model) body() string {
 		return m.paletteBody()
 	case m.spawn != nil:
 		return m.fullBox(m.spawnLines())
+	case m.finder != nil:
+		return m.fullBox(m.finderLines())
 	case m.showHelp:
 		return m.fullBox(helpLines())
 	case m.screen == screenDeployRun:
@@ -161,6 +163,9 @@ func vulnSummary(total, crit, high int) string {
 func (m Model) footer() string {
 	if m.spawn != nil {
 		return m.statusLine(m.spawn.hints())
+	}
+	if m.finder != nil {
+		return m.statusLine(m.finder.hints())
 	}
 	if m.stopAsk != nil {
 		return clip(" "+sWarn.Render("stop "+m.stopAsk.Slug+"? its work stays on "+m.stopAsk.Branch+".  y to confirm, any other key cancels"), m.w)
@@ -548,6 +553,7 @@ func helpLines() []string {
 		"",
 		sBold.Render("Projects"),
 		row("enter", "open the project"),
+		row("f", "find every git repo in a folder and pick which to watch"),
 		row("a", "add a project directory (prefilled with where you launched oryn)"),
 		row("d", "stop watching the selected project"),
 		row("[  ]", "inside a project: previous / next tab (Overview, Agents, Deploys, GitHub, Health, Activity)"),

@@ -58,6 +58,10 @@ palette with every action and project. `?` lists every key.
 | `6` | Health   | Dependencies, vulnerabilities, outdated packages, upstream status for all projects |
 | `7` | Activity | Timeline of everything: what's new since you last looked, then earlier events |
 
+On Projects: `f` lists every git repo in a folder, GitHub ones first, up to
+three levels down. `space` picks one, `a` picks all, `enter` starts watching
+them. `oryn add` does the same for a single folder.
+
 Everywhere: `j/k` move · `r` refresh · `?` help · `q` quit.
 
 On Home: `tab` or `h/l` switch window · `enter` opens the selected row. **Needs

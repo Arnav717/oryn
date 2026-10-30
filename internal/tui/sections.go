@@ -49,7 +49,7 @@ func init() {
 		},
 		secProjects: {
 			title: "Projects",
-			hints: "enter open · a add · d remove · ctrl+p commands",
+			hints: "enter open · f find in folder · a add · d remove · ctrl+p commands",
 			open: func(m *Model) {
 				m.screen = screenProjects
 				m.clampHome()
@@ -150,7 +150,7 @@ func (m *Model) openSection(id sectionID) {
 // navFree reports whether number keys may switch tabs: not while typing, and
 // not out of a flow that has to finish first.
 func (m Model) navFree() bool {
-	return !m.adding && !m.confirmRm && !m.tokenEntry && m.spawn == nil && m.screen != screenPicker && m.screen != screenDeployRun
+	return !m.adding && !m.confirmRm && !m.tokenEntry && m.spawn == nil && m.finder == nil && m.screen != screenPicker && m.screen != screenDeployRun
 }
 
 // sectionKey maps a number key to its tab.
