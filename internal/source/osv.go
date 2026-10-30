@@ -2,6 +2,9 @@ package source
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
