@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in oryn doesn't work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Press 3\n2. Press n\n3. ..."
+  - type: input
+    id: version
+    attributes:
+      label: oryn version
+      description: Output of `oryn version`
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System and terminal
+      placeholder: Fedora 44, kitty
+  - type: markdown
+    attributes:
+      value: "Please remove tokens and private paths from anything you paste. Security problems belong in a [private advisory](https://github.com/Arnav717/oryn/security/advisories/new)."

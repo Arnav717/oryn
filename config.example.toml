@@ -1,7 +1,7 @@
 # Copy to ~/.config/oryn/config.toml
 
 # Project roots to watch. Each is scanned (4 levels deep) for lockfiles.
-# Normally managed with `oryn add` / `oryn rm` or the home screen.
+# Normally managed with `oryn add` / `oryn rm` or the Projects tab.
 projects = [
   "~/code/myapp",
   "~/code/api",

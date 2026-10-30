@@ -36,7 +36,7 @@ func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
 const usage = `oryn - a terminal hub for your projects
 
 Usage:
-  oryn              open the terminal (home screen)
+  oryn              open the terminal
   oryn add [dir]    watch a project (default: current dir)
   oryn rm [dir]     stop watching a project
   oryn ls           list watched projects

@@ -1,13 +1,13 @@
 # oryn
 
-A terminal hub for your projects. `oryn` puts what you'd otherwise check across
-a dozen tabs on one keyboard-driven screen: what needs you, what's deployed,
-what's happening on GitHub, and whether anything you depend on broke. Deploy
-and clean up from the same place.
+**A terminal hub for your projects and the AI agents working on them.**
 
-Local-first: no account, no server. Your code never leaves your machine. oryn
-talks directly to the services you connect, and sends only package names and
-versions to public APIs (OSV, npm, PyPI, Go proxy).
+See what needs you, run agents side by side, ship their work, deploy, and keep
+an eye on GitHub, all from one keyboard-driven screen.
+
+Local-first: no account, no server, no telemetry. Your code never leaves your
+machine. oryn talks directly to the services you connect, and sends only
+package names and versions to public APIs (OSV, npm, PyPI, Go proxy).
 
 ```
  ◆ oryn  Home  Projects  Agents  Deploys  GitHub  Health  Activity         16:27
@@ -21,27 +21,57 @@ versions to public APIs (OSV, npm, PyPI, Go proxy).
  /data/oryn                         tab switch  enter open  ctrl+p commands
 ```
 
+## What it does
+
+- **Needs you:** one ranked list of failed deploys, failing CI, PRs to review and agents waiting on you.
+- **Run agents:** start Claude Code, Codex, OpenCode or Antigravity (`agy`) on a task, each in its own git worktree and branch.
+- **Ship their work:** review the diff, open a PR or discard it. Hand a failing build to an agent with one key.
+- **Give agents context:** `oryn context` and an MCP server tell an agent the stack, commands and state of a project, so it doesn't wander.
+- **Deploy:** link, deploy and clean up on Vercel, Netlify and Cloudflare Pages, with live progress.
+- **GitHub:** PRs, issues, Actions, commits and releases for every project.
+- **Health:** vulnerabilities, outdated packages and upstream status, kept out of your way.
+- **Find projects:** list every repo in a folder and pick which to watch.
+
 ## Install
 
+oryn needs Go to build. Agents also need `tmux`, and opening PRs needs `gh`.
+
 ```sh
+git clone https://github.com/Arnav717/oryn
+cd oryn
 make install              # → ~/.local/bin/oryn
 ```
 
 Tagged releases publish archives for Linux, macOS and Windows with a
-`SHA256SUMS` file. Once the repo is public they also carry GitHub build-provenance attestations:
+`SHA256SUMS` file. Running agents needs tmux, so that part doesn't work on
+native Windows. Once the repo is public, releases also carry GitHub
+build-provenance attestations:
 
 ```sh
 sha256sum -c --ignore-missing SHA256SUMS
 gh attestation verify oryn_<version>_linux_amd64.tar.gz --repo Arnav717/oryn
 ```
 
+## Quick start
+
+```sh
+oryn                 # open it, then press 2 and f to find your repos
+```
+
+Press `3` then `n` to start an agent, and `ctrl+p` for every action.
+
 ## Use
 
 ```sh
 oryn                 # open the terminal
-oryn add             # watch the current directory (once per project)
+oryn add [dir]       # watch a project
+oryn rm [dir]        # stop watching one
+oryn context [dir]   # what an agent needs to know (--json for machines)
+oryn mcp             # serve that over MCP
+oryn claim --as NAME PATH...   # mark files as being worked on
+oryn release --as NAME         # give them back
 oryn daemon          # background refresh + desktop alerts
-oryn ls · rm · scan · version
+oryn ls · scan · deploys · version
 ```
 
 `oryn` opens on Home, with a tab bar that stays on screen everywhere. Keys `1`
@@ -193,23 +223,27 @@ Cargo, uv) and from the sibling `package.json` / `pyproject.toml` otherwise
 Config: `~/.config/oryn/config.toml` (see `config.example.toml`).
 Data: `~/.local/share/oryn/oryn.db`.
 
-## Layout
+## Speed
 
-```
-cmd/oryn/          entrypoint: tui, scan, daemon
-internal/browser/  open URLs
-internal/gitrepo/  folder → GitHub repo
-internal/notify/   desktop notifications
-internal/config/   config loading
-internal/detect/   lockfile parsers
-internal/source/   OSV, registries, status pages
-internal/store/    SQLite activity timeline
-internal/app/      refresh: detect → sources → events
-internal/tui/      Bubble Tea UI
-```
+oryn opens straight away from its last refresh, then updates in the background.
+Vulnerability details stay on disk for a week and latest versions for six hours.
+The check of your packages against OSV is reused for ten minutes, unless a
+lockfile changes. If a service is down, oryn keeps showing what it last knew.
 
 ## Roadmap
 
 - AI features: daily brief, explain a failed deploy or CI run, changelog impact
 - rollback and promote, live deploy logs
+- merge, approve and re-run CI from oryn
+- dismiss or snooze items in Needs you
 - later: upgrade desk, custom layouts, exec-based custom sources, team sync
+
+## Contributing
+
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, how
+the code is laid out and the safety rules every change has to keep. Please
+report security problems privately, as [SECURITY.md](SECURITY.md) explains.
+
+## License
+
+[MIT](LICENSE)

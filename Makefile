@@ -2,7 +2,7 @@ PREFIX ?= $(HOME)/.local
 VERSION ?= dev
 TARGETS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 
-.PHONY: build install test dist
+.PHONY: build install test check dist
 
 build:
 	go build -o bin/oryn ./cmd/oryn
@@ -12,6 +12,12 @@ install:
 
 test:
 	go test ./...
+
+# check is what CI runs.
+check:
+	@test -z "$$(gofmt -l .)" || (echo "gofmt needed:"; gofmt -l .; exit 1)
+	go vet ./...
+	go test -race ./...
 
 # dist cross-builds release archives and writes dist/SHA256SUMS.
 # Verify a download with: sha256sum -c --ignore-missing SHA256SUMS
