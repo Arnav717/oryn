@@ -88,6 +88,16 @@ change, so a tool oryn can't read simply doesn't appear. Codex and OpenCode
 don't record when they're waiting for approval, so they only show as working
 or idle.
 
+`n` starts an agent: pick a project and tool, describe the task. It gets its
+own git worktree and branch (`oryn/<task>`) from your last commit, and runs in
+tmux so it keeps going after you quit oryn. `a` opens its live terminal and
+`ctrl+]` comes back. `x` stops it and keeps its work. Agents keep their normal
+approval prompts, and oryn shows an agent as waiting when one is on its screen.
+Claude Code asks you to trust each new worktree once: press `a` and confirm. A
+worktree separates files, it isn't a sandbox. Gitignored
+files such as `.env` and `node_modules` aren't copied in. Needs tmux, and oryn
+uses a private tmux server so your own sessions aren't touched.
+
 ### Projects are containers
 
 Opening a project gives you its own tabs (`[` and `]` switch): **Overview**,
@@ -174,7 +184,7 @@ internal/tui/      Bubble Tea UI
 
 ## Roadmap
 
-- Agents: start, stop and review them from oryn
+- Agents: review their diffs and open PRs from oryn, and hand them a failing build
 - `oryn context` and an MCP server, so agents get a project's state without wandering
 - AI features: daily brief, explain a failed deploy or CI run, changelog impact
 - rollback and promote, live deploy logs

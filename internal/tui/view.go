@@ -60,6 +60,8 @@ func (m Model) body() string {
 	switch {
 	case m.palOpen:
 		return m.paletteBody()
+	case m.spawn != nil:
+		return m.fullBox(m.spawnLines())
 	case m.showHelp:
 		return m.fullBox(helpLines())
 	case m.screen == screenDeployRun:
@@ -157,6 +159,12 @@ func vulnSummary(total, crit, high int) string {
 }
 
 func (m Model) footer() string {
+	if m.spawn != nil {
+		return m.statusLine(m.spawn.hints())
+	}
+	if m.stopAsk != nil {
+		return clip(" "+sWarn.Render("stop "+m.stopAsk.Slug+"? its work stays on "+m.stopAsk.Branch+".  y to confirm, any other key cancels"), m.w)
+	}
 	if m.delAsk != nil {
 		return clip(m.deletePrompt(), m.w)
 	}
@@ -214,7 +222,7 @@ func (m Model) footer() string {
 		hints = m.projectHints()
 	}
 	if m.agOpen != "" && (m.screen == screenAgents || m.tab == tabAgents) {
-		hints = "esc back · ctrl+p commands"
+		hints = "a attach · x stop · esc back"
 	}
 	return m.statusLine(hints)
 }
@@ -244,7 +252,7 @@ func (m Model) statusLine(hints string) string {
 func (m Model) projectHints() string {
 	switch m.tab {
 	case tabAgents:
-		return "enter details · [ ] tabs · ctrl+p commands"
+		return "n new · a attach · x stop · enter details · [ ] tabs"
 	case tabOverview, tabDeploys:
 		return "enter open · p deploy · [ ] tabs · ctrl+p commands"
 	case tabGitHub:
@@ -533,7 +541,10 @@ func helpLines() []string {
 		row("q", "quit"),
 		"",
 		sBold.Render("Agents"),
-		row("enter", "details: what it's doing, and the command to resume it"),
+		row("n", "start an agent in its own worktree and branch"),
+		row("a", "attach to an agent oryn started (ctrl+] comes back)"),
+		row("x", "stop it; its worktree and branch stay"),
+		row("enter", "details: what it's doing, and how to get back to it"),
 		"",
 		sBold.Render("Activity"),
 		row("f", "filter: all, deploys, github, health"),

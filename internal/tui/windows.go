@@ -178,6 +178,8 @@ func (m Model) handleHomeKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "A":
 		return m.openAccounts("")
+	case "n":
+		return m.openSpawn()
 	case "D":
 		m.openSection(secDeploys)
 	case "c":

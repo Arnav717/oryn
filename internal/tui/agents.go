@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -18,10 +19,22 @@ const agentPoll = 3 * time.Second
 
 func readAgents() tea.Msg { return agentsMsg{agents.List(time.Now())} }
 
+func agentTick() tea.Cmd {
+	return tea.Tick(agentPoll, func(time.Time) tea.Msg { return agentTickMsg{} })
+}
+
+// agentRoot is the project a session belongs to, "" when it's in none you watch.
+func (m Model) agentRoot(s agents.Session) string {
+	if s.Project != "" {
+		return s.Project
+	}
+	return m.watchedRoot(s.Dir)
+}
+
 // agentProject names a session's project: the watched one it's in, else its
 // folder.
 func (m Model) agentProject(s agents.Session) string {
-	if root := m.watchedRoot(s.Dir); root != "" {
+	if root := m.agentRoot(s); root != "" {
 		return filepath.Base(root)
 	}
 	return filepath.Base(s.Dir)
@@ -60,7 +73,7 @@ func (m Model) agentList() []agents.Session {
 	}
 	var out []agents.Session
 	for _, s := range m.agents {
-		if m.watchedRoot(s.Dir) == m.scope {
+		if m.agentRoot(s) == m.scope {
 			out = append(out, s)
 		}
 	}
@@ -74,7 +87,7 @@ func agentAttention(m *Model) []attnItem {
 			continue
 		}
 		out = append(out, attnItem{sev: attnWarn, text: s.Tool + " is waiting on you: " + agentTitle(s), at: s.Updated,
-			project: m.watchedRoot(s.Dir), name: filepath.Base(s.Dir), to: target{section: secAgents}})
+			project: m.agentRoot(s), name: filepath.Base(s.Dir), to: target{section: secAgents}})
 	}
 	return out
 }
@@ -96,7 +109,7 @@ func agentWinRows(m *Model) []winRow {
 func (m Model) agentSummary(project string) string {
 	var waiting, working int
 	for _, s := range m.agents {
-		if m.watchedRoot(s.Dir) != project {
+		if m.agentRoot(s) != project {
 			continue
 		}
 		switch s.State {
@@ -195,7 +208,77 @@ func (m Model) agentDetail(s agents.Session) []string {
 	if s.Tokens > 0 {
 		lines = append(lines, row("Tokens", fmt.Sprint(s.Tokens)))
 	}
+	if s.Run != nil {
+		lines = append(lines, row("Branch", s.Run.Branch))
+		if s.Running {
+			return append(lines, "", sDim.Render("Press a to open its terminal. ctrl+] comes back."))
+		}
+		lines = append(lines, row("Worktree", config.ShortHome(s.Run.Worktree)))
+	}
+	if s.ID == "" || strings.HasPrefix(s.ID, "oryn-") {
+		return lines
+	}
 	return append(lines, "", sDim.Render("Resume it"), "  cd "+config.ShortHome(s.Dir)+" && "+s.Resume())
+}
+
+// agSelected is the session the detail page or the cursor is on.
+func (m Model) agSelected() (agents.Session, bool) {
+	rows := m.agentList()
+	for i, s := range rows {
+		if (m.agOpen != "" && s.ID == m.agOpen) || (m.agOpen == "" && i == m.agCursor) {
+			return s, true
+		}
+	}
+	return agents.Session{}, false
+}
+
+type attachedMsg struct{ err error }
+type stoppedMsg struct{ text string }
+
+func (m Model) attachAgent() (tea.Model, tea.Cmd) {
+	s, ok := m.agSelected()
+	switch {
+	case !ok:
+		return m, nil
+	case s.Run == nil:
+		m.flash = "oryn didn't start this one, so it can't attach. Resume it with: " + s.Resume()
+		return m, nil
+	}
+	return m, tea.ExecProcess(agents.AttachCmd(*s.Run), func(err error) tea.Msg {
+		if err != nil {
+			return attachedMsg{errors.New("couldn't attach: " + err.Error())}
+		}
+		return attachedMsg{}
+	})
+}
+
+func (m Model) askStop() (tea.Model, tea.Cmd) {
+	s, ok := m.agSelected()
+	switch {
+	case !ok:
+	case s.Run == nil:
+		m.flash = "oryn didn't start this one, so it won't stop it"
+	case !s.Running:
+		m.flash = "already stopped"
+	default:
+		m.stopAsk = s.Run
+	}
+	return m, nil
+}
+
+func (m Model) handleStopConfirm(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	r := *m.stopAsk
+	m.stopAsk = nil
+	if k.String() != "y" {
+		m.flash = "cancelled, still running"
+		return m, nil
+	}
+	return m, func() tea.Msg {
+		if err := agents.Stop(r); err != nil {
+			return stoppedMsg{"couldn't stop " + r.Slug + ": " + err.Error()}
+		}
+		return stoppedMsg{"stopped " + r.Slug + ", its work is on " + r.Branch}
+	}
 }
 
 func (m *Model) agClamp() {
@@ -229,11 +312,21 @@ func (m Model) handleAgentsKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.agOpen = ""
 		case "?":
 			m.showHelp = true
+		case "a":
+			return m.attachAgent()
+		case "x":
+			return m.askStop()
 		}
 		return m, nil
 	}
 	rows := m.agentList()
 	switch k.String() {
+	case "n":
+		return m.openSpawn()
+	case "a":
+		return m.attachAgent()
+	case "x":
+		return m.askStop()
 	case "q":
 		return m, tea.Quit
 	case "esc":

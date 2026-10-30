@@ -15,6 +15,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/Arnav717/oryn/internal/agents"
 	"github.com/Arnav717/oryn/internal/app"
 	"github.com/Arnav717/oryn/internal/config"
 	"github.com/Arnav717/oryn/internal/deploy"
@@ -70,6 +71,7 @@ func main() {
 		fatal(err)
 	}
 	deploy.SetCredsDir(filepath.Dir(*cfgPath))
+	agents.SetStateDir(filepath.Dir(*dbPath))
 
 	switch cmd {
 	case "add", "a":

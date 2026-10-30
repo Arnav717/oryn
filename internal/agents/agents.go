@@ -38,6 +38,10 @@ type Session struct {
 	Needs   string // what it's waiting on, when the tool says
 	Tokens  int64
 	Updated time.Time
+
+	Project string // the project a run belongs to, whose folder Dir is not in
+	Run     *Run   // set when oryn started it
+	Running bool   // the started program is still going
 }
 
 // Active reports whether it's running or waiting on you right now.
@@ -79,6 +83,8 @@ func list(home string, now time.Time, live liveDirs) []Session {
 	out = append(out, codexSessions(home, now, live)...)
 	out = append(out, opencodeSessions(home, now)...)
 	out = append(out, agySessions(home, now)...)
+	alive := panes()
+	out = merge(out, loadRuns(), alive, askingNow(alive), now)
 	slices.SortStableFunc(out, func(a, b Session) int {
 		if c := cmp.Compare(a.State, b.State); c != 0 {
 			return c

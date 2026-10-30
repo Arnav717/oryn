@@ -83,6 +83,7 @@ type clockMsg time.Time
 type autoRefreshMsg struct{}
 
 type agentsMsg struct{ list []agents.Session }
+type agentTickMsg struct{}
 
 type Model struct {
 	cfg *config.Config
@@ -131,6 +132,8 @@ type Model struct {
 	agCursor int
 	agOffset int
 	agOpen   string // ID of the session shown in detail, "" for the list
+	spawn    *spawnForm
+	stopAsk  *agents.Run // a stop waiting for y/n
 
 	win    homeWin // focused window on Home
 	winCur [numWins]int
@@ -206,7 +209,7 @@ func New(cfg *config.Config, st *store.Store) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.refresh(), clock(), m.spin.Tick, m.autoRefresh(), readAgents)
+	return tea.Batch(m.refresh(), clock(), m.spin.Tick, m.autoRefresh(), readAgents, agentTick())
 }
 
 func (m Model) refresh() tea.Cmd {
@@ -299,7 +302,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentsMsg:
 		m.agents = msg.list
 		m.agClamp()
-		return m, tea.Tick(agentPoll, func(time.Time) tea.Msg { return readAgents() })
+		return m, nil
+
+	case agentTickMsg:
+		return m, tea.Batch(readAgents, agentTick())
+
+	case spawnedMsg:
+		return m.onSpawned(msg)
+
+	case attachedMsg:
+		if msg.err != nil {
+			m.flash = msg.err.Error()
+		}
+		return m, readAgents
+
+	case stoppedMsg:
+		m.flash = msg.text
+		return m, readAgents
 
 	case clockMsg:
 		m.now = time.Time(msg)
@@ -351,6 +370,12 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.palOpen {
 		return m.handlePaletteKey(k)
+	}
+	if m.spawn != nil {
+		return m.handleSpawnKey(k)
+	}
+	if m.stopAsk != nil {
+		return m.handleStopConfirm(k)
 	}
 	if k.Type == tea.KeyCtrlP && m.navFree() {
 		return m.openPalette()
