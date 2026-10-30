@@ -436,7 +436,7 @@ func FetchRepos(ctx context.Context, refs []gitrepo.Ref) (map[gitrepo.Ref]*RepoD
 	data := map[gitrepo.Ref]*RepoData{}
 	errs := map[gitrepo.Ref]error{}
 	var mu sync.Mutex
-	forEach(uniq, 3, func(ref gitrepo.Ref) {
+	forEach(uniq, 8, func(ref gitrepo.Ref) {
 		d, err := fetchRepo(ctx, token, ref)
 		mu.Lock()
 		defer mu.Unlock()

@@ -85,6 +85,7 @@ func main() {
 	deploy.SetCredsDir(filepath.Dir(*cfgPath))
 	agents.SetStateDir(filepath.Dir(*dbPath))
 	app.SetCacheDir(filepath.Dir(*dbPath))
+	source.SetCacheDir(filepath.Dir(*dbPath))
 
 	switch cmd {
 	case "add", "a":

@@ -59,9 +59,13 @@ func fetchDeploys(ctx context.Context, cfg *config.Config, snap *Snapshot) {
 		go func(t *DeployTarget) {
 			defer wg.Done()
 			p := deploy.ProviderFor(t.Link.Platform)
-			if t.Deployments, t.Err = p.List(ctx, t.Link, 10); t.Err == nil {
-				t.LiveURL, _ = p.LiveURL(ctx, t.Link) // the UI falls back to the deployment's URL
-			}
+			live := make(chan string, 1)
+			go func() {
+				url, _ := p.LiveURL(ctx, t.Link) // the UI falls back to the deployment's URL
+				live <- url
+			}()
+			t.Deployments, t.Err = p.List(ctx, t.Link, 10)
+			t.LiveURL = <-live
 		}(&targets[i])
 	}
 	wg.Wait()

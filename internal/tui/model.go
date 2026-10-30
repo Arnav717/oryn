@@ -209,6 +209,13 @@ func New(cfg *config.Config, st *store.Store) Model {
 		m.since, _ = st.TouchLastSeen(m.now)
 	}
 	m.homeCursor = m.cwdItem()
+	// Show the last refresh right away; the live one replaces it when it lands.
+	if snap := app.LoadCache(); snap != nil {
+		snap.New = nil // already seen when it was saved
+		m.snap = snap
+		m.index()
+		m.loadSince()
+	}
 	return m
 }
 

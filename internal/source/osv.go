@@ -2,15 +2,17 @@ package source
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/mod/semver"
 
 	"github.com/Arnav717/oryn/internal/detect"
 )
 
-const osvAPI = "https://api.osv.dev/v1"
+var osvAPI = "https://api.osv.dev/v1"
 
 type Vuln struct {
 	ID       string
@@ -75,6 +77,62 @@ type osvRecord struct {
 
 const osvBatchMax = 1000
 
+var (
+	osvRecords = &diskCache[osvRecord]{name: "cache-osv.json", ttl: 7 * 24 * time.Hour}
+	osvMatches = &diskCache[map[string][]int]{name: "cache-osv-matches.json", ttl: 10 * time.Minute}
+)
+
+// matchOSV asks which vulnerabilities affect these exact versions, returning
+// vuln id -> query indexes. Sending every package is slow, so an answer is reused
+// briefly. Any lockfile change alters the key and asks again.
+func matchOSV(ctx context.Context, queries []osvQuery) (map[string][]int, error) {
+	h := sha256.New()
+	for _, q := range queries {
+		fmt.Fprintln(h, q.Package.Ecosystem, q.Package.Name, q.Version)
+	}
+	key := hex.EncodeToString(h.Sum(nil))
+	now := time.Now()
+	cached, found, fresh := osvMatches.get(key, now)
+	if fresh {
+		return cached, nil
+	}
+
+	ids := map[string][]int{}
+	for start := 0; start < len(queries); start += osvBatchMax {
+		end := min(start+osvBatchMax, len(queries))
+		var resp struct {
+			Results []struct {
+				Vulns []struct {
+					ID string `json:"id"`
+				} `json:"vulns"`
+			} `json:"results"`
+		}
+		body := map[string]any{"queries": queries[start:end]}
+		if err := doJSON(ctx, "POST", osvAPI+"/querybatch", body, &resp); err != nil {
+			if found {
+				return cached, nil
+			}
+			return nil, err
+		}
+		for i, r := range resp.Results {
+			for _, v := range r.Vulns {
+				ids[v.ID] = append(ids[v.ID], start+i)
+			}
+		}
+	}
+	osvMatches.replace(key, ids, now)
+	osvMatches.save()
+	return ids, nil
+}
+
+// trimDetails keeps what the summary falls back on, not whole advisories.
+func trimDetails(s string) string {
+	if len(s) > 400 {
+		return s[:400]
+	}
+	return s
+}
+
 // QueryOSV returns known vulnerabilities for each dep, keyed by DepKey.
 func QueryOSV(ctx context.Context, deps []detect.Dep) (map[string][]Vuln, error) {
 	var queries []osvQuery
@@ -90,47 +148,53 @@ func QueryOSV(ctx context.Context, deps []detect.Dep) (map[string][]Vuln, error)
 		keys = append(keys, k)
 	}
 
-	ids := map[string][]int{} // vuln id -> query indexes
-	for start := 0; start < len(queries); start += osvBatchMax {
-		end := min(start+osvBatchMax, len(queries))
-		var resp struct {
-			Results []struct {
-				Vulns []struct {
-					ID string `json:"id"`
-				} `json:"vulns"`
-			} `json:"results"`
-		}
-		body := map[string]any{"queries": queries[start:end]}
-		if err := doJSON(ctx, "POST", osvAPI+"/querybatch", body, &resp); err != nil {
-			return nil, err
-		}
-		for i, r := range resp.Results {
-			for _, v := range r.Vulns {
-				ids[v.ID] = append(ids[v.ID], start+i)
-			}
-		}
+	ids, err := matchOSV(ctx, queries)
+	if err != nil {
+		return nil, err
 	}
 
 	idList := make([]string, 0, len(ids))
 	for id := range ids {
 		idList = append(idList, id)
 	}
+	// A record's details barely change, and fetching them is the slow part.
+	now := time.Now()
 	records := map[string]osvRecord{}
+	var stale []string
+	var missing []string
+	for _, id := range idList {
+		rec, found, fresh := osvRecords.get(id, now)
+		if found {
+			records[id] = rec
+		}
+		if !fresh {
+			stale = append(stale, id)
+		}
+		if !found {
+			missing = append(missing, id)
+		}
+	}
 	var mu sync.Mutex
 	var firstErr error
-	forEach(idList, 8, func(id string) {
+	forEach(stale, 16, func(id string) {
 		var rec osvRecord
 		err := getJSON(ctx, osvAPI+"/vulns/"+id, &rec)
 		mu.Lock()
 		defer mu.Unlock()
 		if err != nil {
-			if firstErr == nil {
+			// An old copy is better than none, so only a gap is an error.
+			if firstErr == nil && slices.Contains(missing, id) {
 				firstErr = err
 			}
 			return
 		}
+		rec.Details = trimDetails(rec.Details)
 		records[id] = rec
+		osvRecords.put(id, rec, now)
 	})
+	if len(stale) > 0 {
+		osvRecords.save() // only a cache: a failed write just means fetching again
+	}
 
 	out := map[string][]Vuln{}
 	for id, idxs := range ids {

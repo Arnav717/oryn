@@ -21,11 +21,20 @@ func SaveCache(s *Snapshot) error {
 	if err != nil {
 		return err
 	}
-	tmp := cachePath + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	// A unique name: the daemon and the TUI can both be saving.
+	tmp, err := os.CreateTemp(filepath.Dir(cachePath), "snapshot.*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, cachePath)
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(b); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), cachePath)
 }
 
 // LoadCache returns the last saved snapshot, or nil. A snapshot that doesn't
