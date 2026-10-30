@@ -80,7 +80,8 @@ On Health: `tab` switch pane · `enter` open package · `/` search (`lod`, `chi`
 ### Agents
 
 oryn reads what Claude Code, Codex, OpenCode and Antigravity (`agy`) leave on
-this machine and shows every session from the last week, most urgent first.
+this machine and shows the last week's sessions in your watched projects, most
+urgent first.
 It only reads: it never writes to those tools' files, and nothing leaves your
 machine. `enter` shows a session and the command to resume it. A session
 waiting on you also lands in Needs you. These are private formats that can

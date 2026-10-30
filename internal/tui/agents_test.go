@@ -30,12 +30,8 @@ func TestAgentWaitingReachesNeedsYou(t *testing.T) {
 	if strings.Contains(got, "fix tests") {
 		t.Errorf("a running agent doesn't need you:\n%s", got)
 	}
-	// Inside a watched project it counts for that project, outside it keeps its folder name.
 	if !strings.Contains(itemTexts(m.needsFor("/code/a")), "ship login") {
 		t.Errorf("project a: %s", itemTexts(m.needsFor("/code/a")))
-	}
-	if out := m.View(); !strings.Contains(out, "tool") {
-		t.Errorf("unwatched folder name missing:\n%s", out)
 	}
 }
 
@@ -89,8 +85,31 @@ func TestAgentCursorSurvivesAShrinkingList(t *testing.T) {
 	// Detail on a session that ended falls back to the list.
 	m = press(t, agentModel(), "3", "enter")
 	next, _ = m.Update(agentsMsg{nil})
-	if out := strings.Join(next.(Model).agentBody(), "\n"); !strings.Contains(out, "No agent sessions") {
+	if out := strings.Join(next.(Model).agentBody(), "\n"); !strings.Contains(out, "No agents") {
 		t.Errorf("view:\n%s", out)
+	}
+}
+
+func TestOnlyWatchedProjectsShowAgents(t *testing.T) {
+	m := press(t, agentModel(), "3") // one session sits in /elsewhere/tool
+	if out := strings.Join(m.agentBody(), "\n"); strings.Contains(out, "outside") {
+		t.Errorf("tab:\n%s", out)
+	}
+	if got := itemTexts(m.needsYou()); strings.Contains(got, "outside") {
+		t.Errorf("queue:\n%s", got)
+	}
+	var text []string
+	for _, r := range agentWinRows(&m) {
+		text = append(text, r.text)
+	}
+	if strings.Contains(strings.Join(text, "\n"), "outside") {
+		t.Errorf("window: %v", text)
+	}
+
+	// Watching the folder brings it in, with no restart.
+	m.cfg.Projects = append(m.cfg.Projects, "/elsewhere/tool")
+	if !strings.Contains(strings.Join(m.agentBody(), "\n"), "outside") {
+		t.Error("newly watched project's agents should appear")
 	}
 }
 
