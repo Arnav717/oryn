@@ -56,10 +56,46 @@ func doJSONH(ctx context.Context, method, url string, headers map[string]string,
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		if msg := apiMessage(resp.Body); msg != "" {
+			return fmt.Errorf("%s %s: %s: %s", method, url, resp.Status, msg)
+		}
 		return fmt.Errorf("%s %s: %s", method, url, resp.Status)
 	}
+	if out == nil || resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
 	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+// apiMessage pulls a short human message out of a JSON error body, the shapes
+// Vercel ({"error":{"message"}}), Cloudflare ({"errors":[{"message"}]}) and
+// Netlify ({"message"}) use. Anything else yields "".
+func apiMessage(r io.Reader) string {
+	b, _ := io.ReadAll(io.LimitReader(r, 4096))
+	var v struct {
+		Message string `json:"message"`
+		Error   struct {
+			Message string `json:"message"`
+		} `json:"error"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if json.Unmarshal(b, &v) != nil {
+		return ""
+	}
+	msg := v.Message
+	if msg == "" {
+		msg = v.Error.Message
+	}
+	if msg == "" && len(v.Errors) > 0 {
+		msg = v.Errors[0].Message
+	}
+	if len(msg) > 200 {
+		msg = msg[:200] + "…"
+	}
+	return msg
 }
 
 // forEach runs fn over items with at most n concurrent calls.

@@ -59,7 +59,7 @@ func (c *Cloudflare) List(ctx context.Context, l Link, limit int) ([]Deployment,
 		out = append(out, Deployment{
 			ID: d.ID, Platform: "cloudflare", Target: target, State: cloudflareState(d.Stage.Name, d.Stage.Status),
 			Branch: m.Branch, Commit: shortSHA(m.Hash), Message: firstLine(m.Message),
-			URL: d.URL, Created: d.Created,
+			URL: d.URL, Created: d.Created.Local(),
 		})
 	}
 	return out, nil

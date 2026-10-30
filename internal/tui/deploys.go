@@ -92,6 +92,7 @@ type deployRow struct {
 	target int    // index into snap.Deploys
 	note   bool   // a status note (not linked, no credentials) rather than a deployment
 	add    string // platform offered for linking when the project has no target for it
+	dep    *deploy.Deployment
 }
 
 // deployRows flattens every target into a header plus one row per deployment.
@@ -113,7 +114,7 @@ func (m Model) deployRows() (lines []string, rows []deployRow, rowLine []int) {
 			continue
 		}
 		shown++
-		lines = append(lines, "", sBold.Render(filepath.Base(t.Link.Project))+" "+sDim.Render(t.Link.Platform+" "+t.Link.Ref))
+		lines = append(lines, "", sBold.Render(filepath.Base(t.Link.Project))+" "+sDim.Render(t.Link.Platform+" "+orDefault(t.Link.Name, t.Link.Ref)))
 		if note := targetNote(t); note != "" {
 			rowLine = append(rowLine, len(lines))
 			rows = append(rows, deployRow{line: note, target: ti, note: true})
@@ -125,7 +126,8 @@ func (m Model) deployRows() (lines []string, rows []deployRow, rowLine []int) {
 			l := deployDot(d.State) + " " + pad(d.State, 9) + pad(d.Target, 11) + pad(d.Branch, 14) + pad(d.Commit, 9) +
 				sDim.Render(pad(ago(d.Created, m.now), 10)) + msg
 			rowLine = append(rowLine, len(lines))
-			rows = append(rows, deployRow{line: l, url: d.URL, target: ti})
+			d := d
+			rows = append(rows, deployRow{line: l, url: d.URL, target: ti, dep: &d})
 			lines = append(lines, "  "+l)
 		}
 	}
@@ -249,6 +251,12 @@ func (m Model) handleDeployKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.dpCursor = 1 << 30
 	case "A":
 		return m.openAccounts("")
+	case "d":
+		return m.askDeleteDeployment()
+	case "X":
+		return m.askDeleteProject()
+	case "u":
+		return m.unlink()
 	case "p":
 		if t, ok := m.deployTargetAtCursor(); ok {
 			if !t.Link.Linked() {
@@ -327,4 +335,11 @@ func (m Model) pickLinesScrolled() []string {
 		lines = append(lines[:2:2], lines[min(len(lines), cur-vis+3):]...)
 	}
 	return lines
+}
+
+func orDefault(s, def string) string {
+	if s != "" {
+		return s
+	}
+	return def
 }

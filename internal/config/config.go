@@ -24,6 +24,7 @@ type DeployLink struct {
 	Platform string `toml:"platform"`
 	Ref      string `toml:"ref"`
 	Team     string `toml:"team,omitempty"`
+	Name     string `toml:"name,omitempty"` // the platform's display name for the project
 }
 
 type Config struct {
@@ -110,14 +111,27 @@ func Load(path string) (*Config, error) {
 
 // SetDeployLink binds project to a platform target, replacing any earlier
 // link for the same platform.
-func (c *Config) SetDeployLink(project, platform, ref, team string) {
+func (c *Config) SetDeployLink(project, platform, ref, team, name string) {
+	nl := DeployLink{Project: project, Platform: platform, Ref: ref, Team: team, Name: name}
 	for i, l := range c.DeployLinks {
 		if l.Project == project && l.Platform == platform {
-			c.DeployLinks[i] = DeployLink{project, platform, ref, team}
+			c.DeployLinks[i] = nl
 			return
 		}
 	}
-	c.DeployLinks = append(c.DeployLinks, DeployLink{project, platform, ref, team})
+	c.DeployLinks = append(c.DeployLinks, nl)
+}
+
+// RemoveDeployLink forgets a project's link to a platform. It reports whether
+// there was one.
+func (c *Config) RemoveDeployLink(project, platform string) bool {
+	for i, l := range c.DeployLinks {
+		if l.Project == project && l.Platform == platform {
+			c.DeployLinks = append(c.DeployLinks[:i], c.DeployLinks[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 // GitHubEnabled reports whether the GitHub integration is switched on.

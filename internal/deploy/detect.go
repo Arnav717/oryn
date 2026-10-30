@@ -20,6 +20,7 @@ type Link struct {
 	Project  string // watched project root
 	Ref      string // platform's project/site/app identifier; "" when only a config file was found
 	Team     string // org or team id when the platform needs one
+	Name     string // the platform's display name for the project, when known
 	Marker   string // file that revealed the platform
 }
 

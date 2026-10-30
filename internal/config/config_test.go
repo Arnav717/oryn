@@ -37,9 +37,9 @@ func TestDeployLinkRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.SetDeployLink("/code/web", "vercel", "prj_1", "team_1")
-	c.SetDeployLink("/code/web", "vercel", "prj_2", "") // replaces, not appends
-	c.SetDeployLink("/code/web", "netlify", "site", "")
+	c.SetDeployLink("/code/web", "vercel", "prj_1", "team_1", "")
+	c.SetDeployLink("/code/web", "vercel", "prj_2", "", "") // replaces, not appends
+	c.SetDeployLink("/code/web", "netlify", "site", "", "")
 	if err := c.Save(); err != nil {
 		t.Fatal(err)
 	}

@@ -225,7 +225,7 @@ func (m Model) pickRows() int {
 // linkTo saves the binding, returns to where the picker was opened and refreshes.
 func (m Model) linkTo(ref deploy.ProjectRef, verb string) (tea.Model, tea.Cmd) {
 	t := m.pickTarget
-	m.cfg.SetDeployLink(t.Link.Project, t.Link.Platform, ref.Ref, ref.Team)
+	m.cfg.SetDeployLink(t.Link.Project, t.Link.Platform, ref.Ref, ref.Team, ref.Name)
 	m.screen = m.pickBack
 	m.creating, m.createConfirm = false, false
 	if !m.cfg.Ephemeral {

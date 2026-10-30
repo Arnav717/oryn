@@ -176,6 +176,9 @@ func vulnSummary(total, crit, high int) string {
 }
 
 func (m Model) footer() string {
+	if m.delAsk != nil {
+		return clip(m.deletePrompt(), m.w)
+	}
 	if m.deployAsk != nil {
 		prompt := sWarn.Render("run: " + m.deployAsk.Display() + " ?  y to confirm, any other key cancels")
 		if len(m.deployAsk.Warn) > 0 {
@@ -221,7 +224,7 @@ func (m Model) footer() string {
 		return clip(sDim.Render("j/k move · enter link · n new project · esc back · q quit"), m.w)
 	}
 	if m.screen == screenDeploys {
-		hints := sDim.Render("j/k move · enter open/link · l link · p deploy · A accounts · esc home · r refresh · ? help · q quit")
+		hints := sDim.Render("j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · esc home · r refresh · ? help · q quit")
 		if m.flash == "" {
 			return clip(hints, m.w)
 		}
@@ -258,7 +261,7 @@ func (m Model) footer() string {
 	if m.tabBarVisible() {
 		hints = sDim.Render("tab pane · j/k move · enter open · / search · [ ] tabs · esc home · r refresh · ? help · q quit")
 		if m.tab == tabDeploys {
-			hints = sDim.Render("j/k move · enter open/link · l link · p deploy · A accounts · [ ] tabs · esc home · r refresh · ? help · q quit")
+			hints = sDim.Render("j/k move · enter open/link · p deploy · d delete deploy · X delete project · u unlink · A accounts · [ ] tabs · esc home · r refresh · ? help · q quit")
 		}
 		if m.tab == tabGitHub {
 			hints = sDim.Render("h/l section · 1-8 jump · j/k move · enter open · o repo · [ ] tabs · esc home · r refresh · ? help · q quit")
@@ -534,6 +537,8 @@ func helpLines() []string {
 		row("c (on home)", "changes since you last looked"),
 		row("D (on home)", "deployments"),
 		row("p (deploys)", "deploy the linked project (asks first)"),
+		row("d / X (deploys)", "delete a deployment / the whole project (asks first)"),
+		row("u (deploys)", "unlink the folder in oryn only"),
 		row("n (link picker)", "create a new project on the platform"),
 		row("A (on home)", "connect Vercel / Netlify / Cloudflare accounts"),
 		row("r", "refresh now"),

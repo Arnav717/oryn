@@ -85,7 +85,7 @@ func (n *Netlify) List(ctx context.Context, l Link, limit int) ([]Deployment, er
 		out = append(out, Deployment{
 			ID: d.ID, Platform: "netlify", Target: target, State: netlifyState(d.State),
 			Branch: d.Branch, Commit: shortSHA(d.CommitRef), Message: firstLine(d.Title),
-			URL: link, Created: d.Created,
+			URL: link, Created: d.Created.Local(),
 		})
 	}
 	return out, nil

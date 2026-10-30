@@ -94,7 +94,7 @@ func withConfigLinks(found []deploy.Link, cfg *config.Config, project string) []
 		if cl.Project != project {
 			continue
 		}
-		l := deploy.Link{Platform: cl.Platform, Project: project, Ref: cl.Ref, Team: cl.Team, Marker: "oryn config"}
+		l := deploy.Link{Platform: cl.Platform, Project: project, Ref: cl.Ref, Team: cl.Team, Name: cl.Name, Marker: "oryn config"}
 		replaced := false
 		for i := range found {
 			if found[i].Platform == cl.Platform {

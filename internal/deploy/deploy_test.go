@@ -403,3 +403,76 @@ func TestCloudflareCreateForbiddenIsExplained(t *testing.T) {
 		t.Fatalf("a 403 should say which permission is missing: %v", err)
 	}
 }
+
+func TestRemove(t *testing.T) {
+	SetCredsDir(t.TempDir())
+	t.Cleanup(func() { SetCredsDir("") })
+	t.Setenv("VERCEL_TOKEN", "tok")
+	t.Setenv("NETLIFY_AUTH_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "tok")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acc1")
+	var seen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.Method+" "+r.URL.RequestURI())
+		if r.Method != "DELETE" || r.Header.Get("Authorization") != "Bearer tok" {
+			http.Error(w, "bad", 400)
+			return
+		}
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/v9/projects/"), strings.HasPrefix(r.URL.Path, "/api/v1/sites/"):
+			w.WriteHeader(204) // no body
+		case strings.Contains(r.URL.Path, "/deployments/prod"):
+			w.WriteHeader(400)
+			w.Write([]byte(`{"errors":[{"message":"cannot delete the active production deployment"}]}`))
+		default:
+			w.Write([]byte(`{"uid":"x","state":"DELETED"}`))
+		}
+	}))
+	defer srv.Close()
+	ctx := context.Background()
+	v := &Vercel{base: srv.URL}
+	n := &Netlify{base: srv.URL}
+	c := &Cloudflare{base: srv.URL}
+	team := Link{Ref: "prj_1", Team: "team_9"}
+
+	for name, err := range map[string]error{
+		"vercel deployment":   v.DeleteDeployment(ctx, team, "dpl_1"),
+		"vercel project":      v.DeleteProject(ctx, team),
+		"netlify deployment":  n.DeleteDeployment(ctx, Link{Ref: "site"}, "d1"),
+		"netlify project":     n.DeleteProject(ctx, Link{Ref: "site"}),
+		"cloudflare project":  c.DeleteProject(ctx, Link{Ref: "web"}),
+		"cloudflare (200 ok)": c.DeleteDeployment(ctx, Link{Ref: "web"}, "d1"),
+	} {
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	want := []string{
+		"DELETE /v13/deployments/dpl_1?teamId=team_9",
+		"DELETE /v9/projects/prj_1?teamId=team_9",
+		"DELETE /api/v1/deploys/d1",
+		"DELETE /api/v1/sites/site",
+		"DELETE /client/v4/accounts/acc1/pages/projects/web",
+		"DELETE /client/v4/accounts/acc1/pages/projects/web/deployments/d1",
+	}
+	if got := strings.Join(seen, "\n"); len(seen) != len(want) {
+		t.Errorf("requests:\n%s", got)
+	}
+	for _, w := range want {
+		found := false
+		for _, s := range seen {
+			found = found || s == w
+		}
+		if !found {
+			t.Errorf("missing request %s in %v", w, seen)
+		}
+	}
+	// The platform's reason reaches the user.
+	err := c.DeleteDeployment(ctx, Link{Ref: "web"}, "prod1")
+	if err == nil || !strings.Contains(err.Error(), "active production deployment") {
+		t.Errorf("API message should surface: %v", err)
+	}
+	if RemoverFor("vercel") == nil || RemoverFor("nope") != nil {
+		t.Error("RemoverFor")
+	}
+}

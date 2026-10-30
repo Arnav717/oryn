@@ -115,6 +115,7 @@ type Model struct {
 	createName    string
 	createInput   textinput.Model
 
+	delAsk    *deleteAsk      // a delete waiting for confirmation
 	deployAsk *deploy.Command // a deploy waiting for y/n
 	run       *deployRun      // the deploy shown on the progress screen
 	runBack   screen
@@ -263,6 +264,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.linkTo(msg.ref, "created")
 
+	case deletedMsg:
+		return m.onDeleted(msg)
+
 	case runEventMsg:
 		return m.onRunEvent(msg)
 
@@ -320,6 +324,9 @@ func (m Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	if m.delAsk != nil {
+		return m.handleDeleteKey(k)
+	}
 	if m.deployAsk != nil {
 		return m.handleDeployConfirm(k)
 	}
