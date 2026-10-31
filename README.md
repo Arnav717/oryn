@@ -84,7 +84,17 @@ PRs needs [`gh`](https://cli.github.com).
 go install github.com/Arnav717/oryn/cmd/oryn@latest
 ```
 
-Or from a clone, which installs to `~/.local/bin`:
+This puts `oryn` in `$(go env GOPATH)/bin`, usually `~/go/bin`. If your shell says
+`command not found: oryn`, that directory isn't on your `PATH`. For zsh, the macOS
+default:
+
+```sh
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Or from a clone, which installs to `~/.local/bin` (this needs to be on your `PATH`
+too):
 
 ```sh
 git clone https://github.com/Arnav717/oryn
